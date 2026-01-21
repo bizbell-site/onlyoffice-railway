@@ -1,3 +1,3 @@
 FROM onlyoffice/documentserver:latest                                                                             
-ENV NGINX_LISTEN=0.0.0.0:80                                                                                       
+RUN find /etc/nginx -name "*.conf" -type f && cat /etc/nginx/nginx.conf                                           
 EXPOSE 80
