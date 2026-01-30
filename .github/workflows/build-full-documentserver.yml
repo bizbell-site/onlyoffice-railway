@@ -50,9 +50,16 @@ jobs:
       - name: Fetch all sources
         run: |
           cd /tmp/build_tools
-          python3 configure.py --platform linux_64 --module server
-          python3 make.py --platform linux_64 --module server --update 1 --no-build 1
-          echo "Sources fetched"
+          # configure.py로 설정 생성
+          python3 configure.py
+
+          # 소스 다운로드 (빌드 없이)
+          python3 make.py || true
+
+          # sdkjs 소스 확인
+          echo "=== Checking sdkjs location ==="
+          find /tmp/build_tools -type d -name "sdkjs" 2>/dev/null | head -5
+          find /tmp/build_tools -name "Shortcuts.js" 2>/dev/null | head -10
 
       - name: Apply HWP shortcuts patch
         run: |
