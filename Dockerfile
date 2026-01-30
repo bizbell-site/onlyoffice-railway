@@ -81,4 +81,25 @@ RUN if [ -f "/tmp/sdkjs-custom/word/sdk-all.js" ]; then \
     fi && \
     rm -rf /tmp/sdkjs-custom
 
+# ============================================
+# 파일 해시 검증 비활성화 (SDKJS 수정 허용)
+# ============================================
+# 방법 1: 캐시 파일 재생성 (새 해시 생성)
+RUN /usr/bin/documentserver-generate-allfonts.sh 2>/dev/null || true
+
+# 방법 2: local.json 설정으로 해시 검증 비활성화
+RUN echo '{"services":{"CoAuthoring":{"server":{"editorDataRecoveryRecreate":true}}},"FileConverter":{"converter":{"errorFiles":""}}}' > /etc/onlyoffice/documentserver/local.json.tmp && \
+    if [ -f /etc/onlyoffice/documentserver/local.json ]; then \
+      apt-get update && apt-get install -y jq && \
+      jq -s '.[0] * .[1]' /etc/onlyoffice/documentserver/local.json /etc/onlyoffice/documentserver/local.json.tmp > /etc/onlyoffice/documentserver/local.json.merged && \
+      mv /etc/onlyoffice/documentserver/local.json.merged /etc/onlyoffice/documentserver/local.json && \
+      rm -f /etc/onlyoffice/documentserver/local.json.tmp; \
+    else \
+      mv /etc/onlyoffice/documentserver/local.json.tmp /etc/onlyoffice/documentserver/local.json; \
+    fi || true
+
+# 방법 3: sdkjs 캐시 파일 삭제 (서버 시작 시 재생성)
+RUN rm -rf /var/www/onlyoffice/documentserver/sdkjs/**/cache 2>/dev/null || true && \
+    rm -f /var/www/onlyoffice/documentserver/web-apps/apps/**/cache/*.json 2>/dev/null || true
+
 EXPOSE 80
