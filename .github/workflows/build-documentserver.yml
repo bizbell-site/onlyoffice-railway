@@ -31,30 +31,30 @@ jobs:
           ls -la /tmp/sdkjs/word/ || echo "No word folder"
           ls -la /tmp/sdkjs/word/Editor/ || echo "No Editor folder"
 
-      - name: Verify Keyboard.js exists
+      - name: Verify Shortcuts.js exists
         run: |
-          echo "Looking for Keyboard.js..."
-          find /tmp/sdkjs -name "Keyboard.js" 2>/dev/null
+          echo "Looking for Shortcuts.js..."
+          find /tmp/sdkjs -name "Shortcuts.js" 2>/dev/null
 
-          if [ -f "/tmp/sdkjs/word/Editor/Keyboard.js" ]; then
-            echo "Found: /tmp/sdkjs/word/Editor/Keyboard.js"
-            head -50 /tmp/sdkjs/word/Editor/Keyboard.js
+          if [ -f "/tmp/sdkjs/word/Editor/Shortcuts.js" ]; then
+            echo "Found: /tmp/sdkjs/word/Editor/Shortcuts.js"
+            head -100 /tmp/sdkjs/word/Editor/Shortcuts.js
           else
-            echo "Keyboard.js not at expected location, searching..."
-            find /tmp/sdkjs -name "*.js" -path "*/Editor/*" | head -10
+            echo "Shortcuts.js not at expected location"
+            ls -la /tmp/sdkjs/word/Editor/ || echo "No word/Editor folder"
           fi
 
       - name: Apply HWP shortcuts patch
         run: |
-          KEYBOARD_FILE="/tmp/sdkjs/word/Editor/Keyboard.js"
+          SHORTCUTS_FILE="/tmp/sdkjs/word/Editor/Shortcuts.js"
 
-          if [ -f "$KEYBOARD_FILE" ]; then
-            echo "Applying HWP shortcuts patch to $KEYBOARD_FILE"
-            cat ${{ github.workspace }}/patches/hwp-keyboard-patch.js >> "$KEYBOARD_FILE"
-            echo "=== Patch applied. Last 60 lines of Keyboard.js ==="
-            tail -60 "$KEYBOARD_FILE"
+          if [ -f "$SHORTCUTS_FILE" ]; then
+            echo "Applying HWP shortcuts patch to $SHORTCUTS_FILE"
+            cat ${{ github.workspace }}/patches/hwp-shortcuts-patch.js >> "$SHORTCUTS_FILE"
+            echo "=== Patch applied. Last 60 lines of Shortcuts.js ==="
+            tail -60 "$SHORTCUTS_FILE"
           else
-            echo "ERROR: Keyboard.js not found at $KEYBOARD_FILE"
+            echo "ERROR: Shortcuts.js not found at $SHORTCUTS_FILE"
             exit 1
           fi
 
