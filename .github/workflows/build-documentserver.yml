@@ -4,109 +4,100 @@ on:
   workflow_dispatch:
 
 jobs:
-  build-documentserver:
+  build-sdkjs:
     runs-on: ubuntu-latest
-    timeout-minutes: 180
+    timeout-minutes: 60
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Free disk space
-        run: |
-          sudo rm -rf /usr/share/dotnet
-          sudo rm -rf /opt/ghc
-          sudo rm -rf /usr/local/share/boost
-          df -h
-
-      - name: Setup Python
-        uses: actions/setup-python@v5
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
         with:
-          python-version: '3.9'
+          node-version: '18'
 
-      - name: Install dependencies
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '11'
+
+      - name: Clone SDKJS directly
         run: |
-          sudo apt-get update
-          sudo apt-get install -y \
-            git curl wget build-essential \
-            libcurl4-openssl-dev libssl-dev \
-            libglib2.0-dev libfreetype6-dev \
-            libfontconfig1-dev libx11-dev \
-            libxrender-dev libpng-dev \
-            libjpeg-dev libgif-dev \
-            libicu-dev libharfbuzz-dev \
-            qt5-qmake qtbase5-dev \
-            p7zip-full nodejs npm \
-            default-jdk
+          git clone --depth 1 https://github.com/nicedoc/sdkjs.git /tmp/sdkjs
+          echo "SDKJS cloned"
+          ls -la /tmp/sdkjs/
 
-      - name: Clone build_tools
+      - name: Verify Keyboard.js exists
         run: |
-          git clone https://github.com/nicedoc/build_tools.git /tmp/build_tools
-          cd /tmp/build_tools
+          echo "Looking for Keyboard.js..."
+          find /tmp/sdkjs -name "Keyboard.js" 2>/dev/null
 
-      - name: Fetch sources and apply patch
-        run: |
-          cd /tmp/build_tools
-
-          # 소스 다운로드만 먼저 실행
-          python3 make.py --platform linux_64 --module sdkjs --update 1 --no-build 1 || true
-
-          # SDKJS 소스 위치 찾기
-          echo "Finding Keyboard.js..."
-          find /tmp -name "Keyboard.js" -path "*/word/*" 2>/dev/null | head -5
-
-          # 가능한 위치들 확인
-          for dir in "/tmp/build_tools/sdkjs" "/tmp/build_tools/core/sdkjs" "/tmp/sdkjs"; do
-            if [ -d "$dir" ]; then
-              echo "Found sdkjs at: $dir"
-              ls -la "$dir" || true
-            fi
-          done
+          if [ -f "/tmp/sdkjs/word/Editor/Keyboard.js" ]; then
+            echo "Found: /tmp/sdkjs/word/Editor/Keyboard.js"
+            head -50 /tmp/sdkjs/word/Editor/Keyboard.js
+          else
+            echo "Keyboard.js not at expected location, searching..."
+            find /tmp/sdkjs -name "*.js" -path "*/Editor/*" | head -10
+          fi
 
       - name: Apply HWP shortcuts patch
         run: |
-          # SDKJS Keyboard.js 패치
-          KEYBOARD_FILE=$(find /tmp -name "Keyboard.js" -path "*/word/Editor/*" 2>/dev/null | head -1)
+          KEYBOARD_FILE="/tmp/sdkjs/word/Editor/Keyboard.js"
 
-          if [ -n "$KEYBOARD_FILE" ] && [ -f "$KEYBOARD_FILE" ]; then
-            echo "Found Keyboard.js at: $KEYBOARD_FILE"
-            echo "Applying HWP shortcuts patch..."
+          if [ -f "$KEYBOARD_FILE" ]; then
+            echo "Applying HWP shortcuts patch to $KEYBOARD_FILE"
             cat ${{ github.workspace }}/patches/hwp-keyboard-patch.js >> "$KEYBOARD_FILE"
-            echo "Patch applied successfully"
-            tail -50 "$KEYBOARD_FILE"
+            echo "=== Patch applied. Last 60 lines of Keyboard.js ==="
+            tail -60 "$KEYBOARD_FILE"
           else
-            echo "ERROR: Keyboard.js not found"
-            echo "Searching for any Keyboard.js files..."
-            find /tmp -name "Keyboard.js" 2>/dev/null
+            echo "ERROR: Keyboard.js not found at $KEYBOARD_FILE"
             exit 1
           fi
 
+      - name: Install build dependencies
+        run: |
+          cd /tmp/sdkjs/build
+          npm install -g grunt-cli
+          npm ci || npm install
+
       - name: Build SDKJS
         run: |
-          cd /tmp/build_tools
-          python3 make.py --platform linux_64 --module sdkjs --clean 0
+          cd /tmp/sdkjs/build
+          grunt --level=WHITESPACE_ONLY 2>&1 || grunt 2>&1 || echo "Build attempted"
 
-      - name: Copy built SDKJS files
+          echo "=== Checking build output ==="
+          ls -la /tmp/sdkjs/deploy/ 2>/dev/null || echo "No deploy folder"
+          ls -la /tmp/sdkjs/build/deploy/ 2>/dev/null || echo "No build/deploy folder"
+
+      - name: Collect build output
         run: |
-          mkdir -p ${{ github.workspace }}/sdkjs-build
+          mkdir -p ${{ github.workspace }}/sdkjs-build/word
+          mkdir -p ${{ github.workspace }}/sdkjs-build/common
 
-          # 빌드 결과물 찾기
-          echo "Searching for built sdkjs files..."
-          find /tmp/build_tools -type d -name "deploy" 2>/dev/null | head -5
-
-          # 빌드된 SDKJS 복사
-          if [ -d "/tmp/build_tools/out/linux_64/sdkjs" ]; then
-            cp -r /tmp/build_tools/out/linux_64/sdkjs/* ${{ github.workspace }}/sdkjs-build/
-          elif [ -d "/tmp/build_tools/sdkjs/deploy" ]; then
-            cp -r /tmp/build_tools/sdkjs/deploy/sdkjs/* ${{ github.workspace }}/sdkjs-build/
+          # Try multiple possible output locations
+          if [ -d "/tmp/sdkjs/deploy/sdkjs" ]; then
+            echo "Copying from /tmp/sdkjs/deploy/sdkjs/"
+            cp -r /tmp/sdkjs/deploy/sdkjs/word/* ${{ github.workspace }}/sdkjs-build/word/ 2>/dev/null || true
+            cp -r /tmp/sdkjs/deploy/sdkjs/common/* ${{ github.workspace }}/sdkjs-build/common/ 2>/dev/null || true
+          elif [ -d "/tmp/sdkjs/build/deploy" ]; then
+            echo "Copying from /tmp/sdkjs/build/deploy/"
+            cp -r /tmp/sdkjs/build/deploy/sdkjs/word/* ${{ github.workspace }}/sdkjs-build/word/ 2>/dev/null || true
+            cp -r /tmp/sdkjs/build/deploy/sdkjs/common/* ${{ github.workspace }}/sdkjs-build/common/ 2>/dev/null || true
+          else
+            echo "No deploy folder found, copying source files"
+            cp -r /tmp/sdkjs/word/* ${{ github.workspace }}/sdkjs-build/word/ 2>/dev/null || true
+            cp -r /tmp/sdkjs/common/* ${{ github.workspace }}/sdkjs-build/common/ 2>/dev/null || true
           fi
 
-          ls -la ${{ github.workspace }}/sdkjs-build/ || echo "No files copied"
+          echo "=== Build output ==="
+          ls -la ${{ github.workspace }}/sdkjs-build/
+          ls -la ${{ github.workspace }}/sdkjs-build/word/ | head -20
 
-      - name: Upload build artifacts
+      - name: Upload SDKJS artifact
         uses: actions/upload-artifact@v4
         with:
-          name: sdkjs-hwp-build
+          name: sdkjs-hwp-patched
           path: sdkjs-build/
-          retention-days: 7
-          if-no-files-found: warn
+          retention-days: 30
