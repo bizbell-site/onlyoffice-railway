@@ -97,9 +97,14 @@ jobs:
           ls -la ${{ github.workspace }}/sdkjs-build/
           ls -la ${{ github.workspace }}/sdkjs-build/word/ | head -20
 
-      - name: Upload SDKJS artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: sdkjs-hwp-patched
-          path: sdkjs-build/
-          retention-days: 30
+      - name: Commit and push SDKJS build
+        run: |
+          # sdkjs-build 폴더를 sdkjs-custom으로 이동
+          rm -rf ${{ github.workspace }}/sdkjs-custom
+          mv ${{ github.workspace }}/sdkjs-build ${{ github.workspace }}/sdkjs-custom
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add sdkjs-custom/
+          git commit -m "chore: add built SDKJS with HWP shortcuts (grunt build)" || echo "No changes to commit"
+          git push

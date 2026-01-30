@@ -64,4 +64,19 @@ RUN fc-cache -fv
 # ONLYOFFICE 폰트 등록
 RUN /usr/bin/documentserver-generate-allfonts.sh
 
+# ============================================
+# HWP 단축키 (SDKJS 빌드 방식)
+# ============================================
+# GitHub Actions에서 grunt로 빌드된 SDKJS를 사용
+COPY sdkjs-custom/ /tmp/sdkjs-custom/
+RUN if [ -d "/tmp/sdkjs-custom/word" ] && [ "$(ls -A /tmp/sdkjs-custom/word 2>/dev/null)" ]; then \
+      echo "Installing custom SDKJS with HWP shortcuts..."; \
+      cp -r /tmp/sdkjs-custom/word/* /var/www/onlyoffice/documentserver/sdkjs/word/ 2>/dev/null || true; \
+      cp -r /tmp/sdkjs-custom/common/* /var/www/onlyoffice/documentserver/sdkjs/common/ 2>/dev/null || true; \
+      echo "Custom SDKJS installed successfully"; \
+    else \
+      echo "No custom SDKJS found, using default"; \
+    fi && \
+    rm -rf /tmp/sdkjs-custom
+
 EXPOSE 80
