@@ -64,7 +64,21 @@ RUN fc-cache -fv
 # ONLYOFFICE 폰트 등록
 RUN /usr/bin/documentserver-generate-allfonts.sh
 
-# HWP 단축키는 전체 소스 빌드 방식으로 진행 중
-# (별도 워크플로우: build-full-documentserver.yml)
+# ============================================
+# HWP 단축키 패치된 SDKJS 적용
+# ============================================
+# 빌드된 SDKJS 복사 (HWP 단축키 포함)
+COPY sdkjs-custom/ /tmp/sdkjs-custom/
+
+# Word 에디터 SDK 교체 (HWP 단축키 적용)
+RUN if [ -f "/tmp/sdkjs-custom/word/sdk-all.js" ]; then \
+      cp /tmp/sdkjs-custom/word/sdk-all.js /var/www/onlyoffice/documentserver/sdkjs/word/sdk-all.js && \
+      echo "SDKJS word/sdk-all.js replaced with HWP shortcuts"; \
+    fi && \
+    if [ -f "/tmp/sdkjs-custom/word/sdk-all-min.js" ]; then \
+      cp /tmp/sdkjs-custom/word/sdk-all-min.js /var/www/onlyoffice/documentserver/sdkjs/word/sdk-all-min.js && \
+      echo "SDKJS word/sdk-all-min.js replaced"; \
+    fi && \
+    rm -rf /tmp/sdkjs-custom
 
 EXPOSE 80
