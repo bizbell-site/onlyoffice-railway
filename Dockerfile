@@ -65,9 +65,18 @@ RUN fc-cache -fv
 RUN /usr/bin/documentserver-generate-allfonts.sh
 
 # ============================================
-# HWP 단축키 플러그인 설치
+# HWP 단축키 (SDKJS 사전 빌드 방식)
 # ============================================
-# 플러그인 디렉토리에 복사 (코어 파일 수정 없음 - 안전)
-COPY plugins/hwp-shortcuts /var/www/onlyoffice/documentserver/sdkjs-plugins/hwp-shortcuts/
+# GitHub Actions에서 빌드된 SDKJS를 사용
+# sdkjs-custom/ 폴더가 있으면 기존 sdkjs를 교체
+COPY sdkjs-custom/ /tmp/sdkjs-custom/
+RUN if [ -d "/tmp/sdkjs-custom/word" ] && [ "$(ls -A /tmp/sdkjs-custom/word 2>/dev/null)" ]; then \
+      echo "Installing custom SDKJS with HWP shortcuts..."; \
+      cp -r /tmp/sdkjs-custom/* /var/www/onlyoffice/documentserver/sdkjs/; \
+      echo "Custom SDKJS installed successfully"; \
+    else \
+      echo "No custom SDKJS found, using default"; \
+    fi && \
+    rm -rf /tmp/sdkjs-custom
 
 EXPOSE 80
