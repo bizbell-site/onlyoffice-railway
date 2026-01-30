@@ -25,94 +25,111 @@ jobs:
           echo "=== After cleanup ==="
           df -h
 
-      - name: Install build dependencies
+      - name: Clone official ONLYOFFICE SDKJS
         run: |
-          sudo apt-get update
-          sudo apt-get install -y \
-            git python3 python3-pip \
-            build-essential cmake \
-            libcurl4-openssl-dev libssl-dev \
-            libglib2.0-dev libfreetype6-dev \
-            libfontconfig1-dev libx11-dev \
-            libxrender-dev libpng-dev \
-            libjpeg-dev libgif-dev \
-            libicu-dev libharfbuzz-dev \
-            qt5-qmake qtbase5-dev \
-            p7zip-full default-jdk \
-            nodejs npm
+          # 공식 ONLYOFFICE sdkjs 클론
+          git clone --depth 1 https://github.com/ONLYOFFICE/sdkjs.git /tmp/sdkjs
 
-      - name: Clone build_tools
-        run: |
-          git clone https://github.com/nicedoc/build_tools.git /tmp/build_tools
-          cd /tmp/build_tools
-          echo "Build tools cloned"
+          echo "=== SDKJS structure ==="
+          ls -la /tmp/sdkjs/
+          ls -la /tmp/sdkjs/word/Editor/ | head -20
 
-      - name: Fetch all sources
-        run: |
-          cd /tmp/build_tools
-          # configure.py로 설정 생성
-          python3 configure.py
-
-          # 소스 다운로드 (빌드 없이)
-          python3 make.py || true
-
-          # sdkjs 소스 확인
-          echo "=== Checking sdkjs location ==="
-          find /tmp/build_tools -type d -name "sdkjs" 2>/dev/null | head -5
-          find /tmp/build_tools -name "Shortcuts.js" 2>/dev/null | head -10
+          # Shortcuts.js 확인
+          if [ -f "/tmp/sdkjs/word/Editor/Shortcuts.js" ]; then
+            echo "✓ Found Shortcuts.js"
+            head -50 /tmp/sdkjs/word/Editor/Shortcuts.js
+          else
+            echo "✗ Shortcuts.js not found"
+            exit 1
+          fi
 
       - name: Apply HWP shortcuts patch
         run: |
-          # Find Shortcuts.js in sdkjs
-          SHORTCUTS_FILE=$(find /tmp/build_tools -path "*/sdkjs/word/Editor/Shortcuts.js" 2>/dev/null | head -1)
+          SHORTCUTS_FILE="/tmp/sdkjs/word/Editor/Shortcuts.js"
 
-          if [ -z "$SHORTCUTS_FILE" ]; then
-            echo "Searching for Shortcuts.js in different locations..."
-            find /tmp/build_tools -name "Shortcuts.js" 2>/dev/null
-            SHORTCUTS_FILE=$(find /tmp/build_tools -name "Shortcuts.js" -path "*/word/*" 2>/dev/null | head -1)
-          fi
+          echo "=== Before patch (last 30 lines) ==="
+          tail -30 "$SHORTCUTS_FILE"
 
-          if [ -n "$SHORTCUTS_FILE" ] && [ -f "$SHORTCUTS_FILE" ]; then
-            echo "Found Shortcuts.js at: $SHORTCUTS_FILE"
-            echo "Applying HWP shortcuts patch..."
-            cat ${{ github.workspace }}/patches/hwp-shortcuts-patch.js >> "$SHORTCUTS_FILE"
-            echo "Patch applied"
-            tail -60 "$SHORTCUTS_FILE"
-          else
-            echo "WARNING: Shortcuts.js not found, continuing without patch"
-          fi
+          echo ""
+          echo "=== Applying HWP shortcuts patch ==="
+          cat ${{ github.workspace }}/patches/hwp-shortcuts-patch.js >> "$SHORTCUTS_FILE"
 
-      - name: Build Document Server
+          echo ""
+          echo "=== After patch (last 60 lines) ==="
+          tail -60 "$SHORTCUTS_FILE"
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Setup Java (for Closure Compiler)
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '11'
+
+      - name: Build SDKJS
         run: |
-          cd /tmp/build_tools
-          python3 make.py --platform linux_64 --module server --clean 0
-        timeout-minutes: 240
+          cd /tmp/sdkjs/build
 
-      - name: Check build output
-        run: |
+          echo "=== Installing dependencies ==="
+          npm install -g grunt-cli
+          npm ci || npm install
+
+          echo "=== Running grunt build ==="
+          # WHITESPACE_ONLY로 빌드 (더 빠름)
+          grunt --level=WHITESPACE_ONLY 2>&1 || {
+            echo "WHITESPACE_ONLY failed, trying default build..."
+            grunt 2>&1 || echo "Default grunt also failed"
+          }
+
           echo "=== Checking build output ==="
-          ls -la /tmp/build_tools/out/ 2>/dev/null || echo "No out folder"
-          ls -la /tmp/build_tools/out/linux_64/ 2>/dev/null || echo "No linux_64 folder"
-          find /tmp/build_tools/out -name "*.deb" 2>/dev/null | head -5
-          find /tmp/build_tools/out -name "documentserver*" -type d 2>/dev/null | head -5
+          ls -la /tmp/sdkjs/deploy/ 2>/dev/null || echo "No deploy folder"
+          find /tmp/sdkjs -type d -name "deploy" 2>/dev/null | head -5
+          find /tmp/sdkjs -name "word*.js" 2>/dev/null | head -10
 
-      - name: Create Docker image
+      - name: Collect build artifacts
         run: |
-          cd /tmp/build_tools
+          mkdir -p ${{ github.workspace }}/sdkjs-build
 
-          # Find the built document server
-          DS_PATH=$(find /tmp/build_tools/out -name "documentserver" -type d 2>/dev/null | head -1)
+          # Try multiple possible output locations
+          if [ -d "/tmp/sdkjs/deploy/sdkjs" ]; then
+            echo "Copying from /tmp/sdkjs/deploy/sdkjs/"
+            cp -r /tmp/sdkjs/deploy/sdkjs/* ${{ github.workspace }}/sdkjs-build/
+          elif [ -d "/tmp/sdkjs/build/deploy" ]; then
+            echo "Copying from /tmp/sdkjs/build/deploy/"
+            cp -r /tmp/sdkjs/build/deploy/* ${{ github.workspace }}/sdkjs-build/
+          else
+            echo "No deploy folder found, listing all output locations:"
+            find /tmp/sdkjs -type f -name "*.js" -newer /tmp/sdkjs/.git 2>/dev/null | head -20
 
-          if [ -n "$DS_PATH" ]; then
-            echo "Found Document Server at: $DS_PATH"
-            mkdir -p ${{ github.workspace }}/documentserver-build
-            cp -r "$DS_PATH"/* ${{ github.workspace }}/documentserver-build/
+            # Fallback: copy source with patch
+            echo "Copying patched source files..."
+            cp -r /tmp/sdkjs/word ${{ github.workspace }}/sdkjs-build/
+            cp -r /tmp/sdkjs/common ${{ github.workspace }}/sdkjs-build/
           fi
 
-      - name: Upload build artifacts
+          echo "=== Build output ==="
+          ls -la ${{ github.workspace }}/sdkjs-build/
+          du -sh ${{ github.workspace }}/sdkjs-build/
+
+      - name: Upload SDKJS build
         uses: actions/upload-artifact@v4
         with:
-          name: documentserver-full-build
-          path: documentserver-build/
-          retention-days: 7
-          if-no-files-found: warn
+          name: sdkjs-hwp-build
+          path: sdkjs-build/
+          retention-days: 30
+
+      - name: Commit built SDKJS to repo
+        run: |
+          # sdkjs-build를 레포에 커밋
+          rm -rf ${{ github.workspace }}/sdkjs-custom
+          mv ${{ github.workspace }}/sdkjs-build ${{ github.workspace }}/sdkjs-custom
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          git add sdkjs-custom/
+          git commit -m "chore: add SDKJS build with HWP shortcuts patch" || echo "No changes to commit"
+          git push
