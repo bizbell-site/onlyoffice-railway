@@ -64,4 +64,10 @@ RUN fc-cache -fv
 # ONLYOFFICE 폰트 등록
 RUN /usr/bin/documentserver-generate-allfonts.sh
 
+# ============================================
+# HWP 단축키 플러그인 설치
+# ============================================
+# 플러그인 디렉토리에 복사 (코어 파일 수정 없음 - 안전)
+COPY plugins/hwp-shortcuts /var/www/onlyoffice/documentserver/sdkjs-plugins/hwp-shortcuts/
+
 EXPOSE 80
