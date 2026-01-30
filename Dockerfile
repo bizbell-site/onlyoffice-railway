@@ -65,41 +65,17 @@ RUN fc-cache -fv
 RUN /usr/bin/documentserver-generate-allfonts.sh
 
 # ============================================
-# HWP 단축키 패치된 SDKJS 적용
+# HWP 단축키 - 서버 사이드 스크립트 주입
 # ============================================
-# 빌드된 SDKJS 복사 (HWP 단축키 포함)
-COPY sdkjs-custom/ /tmp/sdkjs-custom/
+# 방법: index.html에 스크립트 주입하여 런타임에 단축키 등록
+# 이 방식은 SDKJS 파일을 수정하지 않으므로 해시 검증 문제 없음
 
-# Word 에디터 SDK 교체 (HWP 단축키 적용)
-RUN if [ -f "/tmp/sdkjs-custom/word/sdk-all.js" ]; then \
-      cp /tmp/sdkjs-custom/word/sdk-all.js /var/www/onlyoffice/documentserver/sdkjs/word/sdk-all.js && \
-      echo "SDKJS word/sdk-all.js replaced with HWP shortcuts"; \
-    fi && \
-    if [ -f "/tmp/sdkjs-custom/word/sdk-all-min.js" ]; then \
-      cp /tmp/sdkjs-custom/word/sdk-all-min.js /var/www/onlyoffice/documentserver/sdkjs/word/sdk-all-min.js && \
-      echo "SDKJS word/sdk-all-min.js replaced"; \
-    fi && \
-    rm -rf /tmp/sdkjs-custom
+COPY patches/hwp-shortcuts-inject.js /var/www/onlyoffice/documentserver/web-apps/apps/documenteditor/main/hwp-shortcuts.js
 
-# ============================================
-# 파일 해시 검증 비활성화 (SDKJS 수정 허용)
-# ============================================
-# 방법 1: 캐시 파일 재생성 (새 해시 생성)
-RUN /usr/bin/documentserver-generate-allfonts.sh 2>/dev/null || true
-
-# 방법 2: local.json 설정으로 해시 검증 비활성화
-RUN echo '{"services":{"CoAuthoring":{"server":{"editorDataRecoveryRecreate":true}}},"FileConverter":{"converter":{"errorFiles":""}}}' > /etc/onlyoffice/documentserver/local.json.tmp && \
-    if [ -f /etc/onlyoffice/documentserver/local.json ]; then \
-      apt-get update && apt-get install -y jq && \
-      jq -s '.[0] * .[1]' /etc/onlyoffice/documentserver/local.json /etc/onlyoffice/documentserver/local.json.tmp > /etc/onlyoffice/documentserver/local.json.merged && \
-      mv /etc/onlyoffice/documentserver/local.json.merged /etc/onlyoffice/documentserver/local.json && \
-      rm -f /etc/onlyoffice/documentserver/local.json.tmp; \
-    else \
-      mv /etc/onlyoffice/documentserver/local.json.tmp /etc/onlyoffice/documentserver/local.json; \
-    fi || true
-
-# 방법 3: sdkjs 캐시 파일 삭제 (서버 시작 시 재생성)
-RUN rm -rf /var/www/onlyoffice/documentserver/sdkjs/**/cache 2>/dev/null || true && \
-    rm -f /var/www/onlyoffice/documentserver/web-apps/apps/**/cache/*.json 2>/dev/null || true
+# Word 에디터 index.html에 스크립트 태그 추가
+RUN sed -i 's|</head>|<script src="hwp-shortcuts.js"></script></head>|' \
+    /var/www/onlyoffice/documentserver/web-apps/apps/documenteditor/main/index.html 2>/dev/null || true && \
+    sed -i 's|</head>|<script src="hwp-shortcuts.js"></script></head>|' \
+    /var/www/onlyoffice/documentserver/web-apps/apps/documenteditor/main/index_loader.html 2>/dev/null || true
 
 EXPOSE 80
