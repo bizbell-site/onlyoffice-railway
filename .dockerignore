@@ -1,0 +1,12 @@
+# Git
+.git
+.gitignore
+
+# GitHub Actions
+.github
+
+# SDKJS custom build (더 이상 사용하지 않음)
+sdkjs-custom
+
+# 기타
+*.md
