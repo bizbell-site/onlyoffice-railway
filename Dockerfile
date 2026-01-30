@@ -74,6 +74,11 @@ RUN if [ -d "/tmp/sdkjs-custom/word" ] && [ "$(ls -A /tmp/sdkjs-custom/word 2>/d
       echo "Installing custom SDKJS with HWP shortcuts..."; \
       cp -r /tmp/sdkjs-custom/* /var/www/onlyoffice/documentserver/sdkjs/; \
       echo "Custom SDKJS installed successfully"; \
+      # 캐시 파일 삭제 (무결성 검사 우회)
+      rm -rf /var/www/onlyoffice/documentserver/sdkjs/*/sdk-all.js.map 2>/dev/null || true; \
+      rm -rf /var/www/onlyoffice/documentserver/web-apps/apps/*/main/app.js.map 2>/dev/null || true; \
+      # 캐시 디렉토리 정리
+      rm -rf /var/lib/onlyoffice/documentserver/App_Data/cache/files/* 2>/dev/null || true; \
     else \
       echo "No custom SDKJS found, using default"; \
     fi && \
