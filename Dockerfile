@@ -65,9 +65,18 @@ RUN fc-cache -fv
 RUN /usr/bin/documentserver-generate-allfonts.sh
 
 # ============================================
-# HWP 단축키 플러그인 설치
+# HWP 단축키 추가 (런타임 패치 방식)
 # ============================================
-# 플러그인 디렉토리에 복사 (코어 파일 수정 없음 - 안전)
-COPY plugins/hwp-shortcuts /var/www/onlyoffice/documentserver/sdkjs-plugins/hwp-shortcuts/
+# HWP 단축키 스크립트를 별도 파일로 생성 후 로드하도록 설정
+COPY patches/hwp-shortcuts.js /var/www/onlyoffice/documentserver/web-apps/apps/documenteditor/main/hwp-shortcuts.js
+
+# documenteditor의 index.html에 스크립트 추가
+RUN EDITOR_HTML="/var/www/onlyoffice/documentserver/web-apps/apps/documenteditor/main/index.html" && \
+    if [ -f "$EDITOR_HTML" ]; then \
+      sed -i 's|</body>|<script src="hwp-shortcuts.js"></script></body>|' "$EDITOR_HTML" && \
+      echo "HWP shortcuts script added to index.html"; \
+    else \
+      echo "Warning: index.html not found at $EDITOR_HTML"; \
+    fi
 
 EXPOSE 80
