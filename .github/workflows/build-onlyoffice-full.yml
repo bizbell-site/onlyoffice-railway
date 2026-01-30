@@ -1,0 +1,242 @@
+name: Build OnlyOffice Document Server (Full Source)
+
+on:
+  workflow_dispatch:
+    inputs:
+      push_image:
+        description: 'Push to GitHub Container Registry'
+        required: true
+        default: 'true'
+        type: boolean
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository_owner }}/onlyoffice-documentserver-hwp
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 480  # 8시간
+
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Free disk space
+        run: |
+          echo "=== Before cleanup ==="
+          df -h
+
+          # 불필요한 도구 삭제
+          sudo rm -rf /usr/share/dotnet
+          sudo rm -rf /opt/ghc
+          sudo rm -rf /usr/local/share/boost
+          sudo rm -rf /usr/local/lib/android
+          sudo rm -rf /opt/hostedtoolcache/CodeQL
+          sudo rm -rf /usr/local/share/powershell
+          sudo rm -rf /usr/share/swift
+
+          # Docker 정리
+          docker system prune -af || true
+
+          # apt 캐시 정리
+          sudo apt-get clean
+
+          echo "=== After cleanup ==="
+          df -h
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            git \
+            python3 \
+            python3-pip \
+            build-essential \
+            cmake \
+            curl \
+            wget \
+            p7zip-full \
+            nodejs \
+            npm \
+            default-jdk \
+            libcurl4-openssl-dev \
+            libssl-dev
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '11'
+
+      - name: Clone OnlyOffice build_tools
+        run: |
+          git clone --depth 1 https://github.com/nicedoc/build_tools.git /tmp/build_tools
+          cd /tmp/build_tools
+          echo "Build tools cloned"
+
+      - name: Configure build
+        run: |
+          cd /tmp/build_tools
+
+          # 빌드 설정 생성
+          python3 configure.py
+
+          echo "Build configured"
+
+      - name: Fetch sources (this takes a while)
+        run: |
+          cd /tmp/build_tools
+
+          # 소스 다운로드 시작
+          echo "Fetching sources... this may take 30-60 minutes"
+          python3 make.py 2>&1 | head -500 || true
+
+          # sdkjs 위치 확인
+          echo "=== Checking sdkjs location ==="
+          find /tmp -type d -name "sdkjs" 2>/dev/null | head -5
+          find /tmp -name "Shortcuts.js" 2>/dev/null | head -5
+        timeout-minutes: 120
+
+      - name: Apply HWP shortcuts patch
+        run: |
+          # sdkjs 위치 찾기
+          SDKJS_DIR=$(find /tmp -type d -name "sdkjs" -path "*/nicedoc/*" 2>/dev/null | head -1)
+
+          if [ -z "$SDKJS_DIR" ]; then
+            SDKJS_DIR=$(find /tmp -type d -name "sdkjs" 2>/dev/null | head -1)
+          fi
+
+          if [ -z "$SDKJS_DIR" ]; then
+            echo "ERROR: sdkjs directory not found"
+            find /tmp -name "*.js" -path "*word*" 2>/dev/null | head -20
+            exit 1
+          fi
+
+          echo "Found sdkjs at: $SDKJS_DIR"
+
+          SHORTCUTS_FILE="$SDKJS_DIR/word/Editor/Shortcuts.js"
+
+          if [ -f "$SHORTCUTS_FILE" ]; then
+            echo "Found Shortcuts.js at: $SHORTCUTS_FILE"
+            echo "=== Original file tail ==="
+            tail -30 "$SHORTCUTS_FILE"
+
+            echo ""
+            echo "=== Applying HWP shortcuts patch ==="
+            cat ${{ github.workspace }}/patches/hwp-shortcuts-patch.js >> "$SHORTCUTS_FILE"
+
+            echo ""
+            echo "=== After patch ==="
+            tail -60 "$SHORTCUTS_FILE"
+          else
+            echo "ERROR: Shortcuts.js not found at $SHORTCUTS_FILE"
+            ls -la "$SDKJS_DIR/word/Editor/" 2>/dev/null || echo "No Editor directory"
+            exit 1
+          fi
+
+      - name: Build Document Server
+        run: |
+          cd /tmp/build_tools
+
+          echo "Starting Document Server build... this may take 2-4 hours"
+          python3 make.py 2>&1 || {
+            echo "Build may have partial failures, checking output..."
+          }
+
+          echo "=== Checking build output ==="
+          ls -la /tmp/build_tools/out/ 2>/dev/null || echo "No out folder"
+          find /tmp/build_tools/out -name "documentserver*" -type d 2>/dev/null | head -5
+          find /tmp/build_tools/out -name "*.deb" 2>/dev/null | head -5
+        timeout-minutes: 300
+
+      - name: Prepare Docker build context
+        run: |
+          mkdir -p ${{ github.workspace }}/docker-build
+
+          # 빌드된 Document Server 찾기
+          DS_OUT=$(find /tmp/build_tools/out -name "documentserver" -type d 2>/dev/null | head -1)
+
+          if [ -n "$DS_OUT" ]; then
+            echo "Found Document Server at: $DS_OUT"
+            cp -r "$DS_OUT" ${{ github.workspace }}/docker-build/documentserver
+          else
+            echo "Looking for alternative output..."
+            find /tmp/build_tools/out -type d 2>/dev/null | head -20
+          fi
+
+          # Dockerfile 복사
+          cp ${{ github.workspace }}/Dockerfile.custom ${{ github.workspace }}/docker-build/Dockerfile 2>/dev/null || \
+          cat > ${{ github.workspace }}/docker-build/Dockerfile << 'DOCKERFILE'
+          FROM ubuntu:22.04
+
+          # 빌드된 Document Server 복사
+          COPY documentserver /var/www/onlyoffice/documentserver
+
+          # 필요한 런타임 의존성 설치
+          RUN apt-get update && apt-get install -y \
+              nginx \
+              supervisor \
+              postgresql-client \
+              redis-tools \
+              fonts-nanum \
+              fonts-noto-cjk \
+              && rm -rf /var/lib/apt/lists/*
+
+          # 폰트 캐시 재생성
+          RUN fc-cache -fv
+
+          EXPOSE 80
+          DOCKERFILE
+
+          echo "=== Docker build context ==="
+          ls -la ${{ github.workspace }}/docker-build/
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Container Registry
+        if: ${{ inputs.push_image == true || inputs.push_image == 'true' }}
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push Docker image
+        if: ${{ inputs.push_image == true || inputs.push_image == 'true' }}
+        uses: docker/build-push-action@v5
+        with:
+          context: ${{ github.workspace }}/docker-build
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Build Docker image (no push)
+        if: ${{ inputs.push_image == false || inputs.push_image == 'false' }}
+        uses: docker/build-push-action@v5
+        with:
+          context: ${{ github.workspace }}/docker-build
+          push: false
+          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:test
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: onlyoffice-documentserver-build
+          path: |
+            ${{ github.workspace }}/docker-build/
+          retention-days: 7
+          if-no-files-found: warn
