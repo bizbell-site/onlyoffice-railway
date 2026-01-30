@@ -25,9 +25,11 @@ jobs:
 
       - name: Clone SDKJS directly
         run: |
-          git clone --depth 1 https://github.com/nicedoc/sdkjs.git /tmp/sdkjs
-          echo "SDKJS cloned"
+          git clone --depth 1 https://github.com/ONLYOFFICE/sdkjs.git /tmp/sdkjs
+          echo "SDKJS cloned from ONLYOFFICE/sdkjs"
           ls -la /tmp/sdkjs/
+          ls -la /tmp/sdkjs/word/ || echo "No word folder"
+          ls -la /tmp/sdkjs/word/Editor/ || echo "No Editor folder"
 
       - name: Verify Keyboard.js exists
         run: |
