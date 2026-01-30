@@ -64,11 +64,4 @@ RUN fc-cache -fv
 # ONLYOFFICE 폰트 등록
 RUN /usr/bin/documentserver-generate-allfonts.sh
 
-# ============================================
-# 한글(HWP) 단축키 패치
-# ============================================
-COPY hwp-keyboard-patch.js /tmp/hwp-keyboard-patch.js
-COPY apply-hwp-shortcuts.sh /tmp/apply-hwp-shortcuts.sh
-RUN chmod +x /tmp/apply-hwp-shortcuts.sh && /tmp/apply-hwp-shortcuts.sh
-
 EXPOSE 80
