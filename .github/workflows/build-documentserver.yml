@@ -3,14 +3,10 @@ name: Build OnlyOffice Document Server with HWP Shortcuts
 on:
   workflow_dispatch:
 
-env:
-  REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository }}
-
 jobs:
   build-documentserver:
     runs-on: ubuntu-latest
-    timeout-minutes: 180  # 3시간 (전체 빌드에 시간 소요)
+    timeout-minutes: 180
 
     steps:
       - name: Checkout repository
@@ -26,93 +22,91 @@ jobs:
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.10'
+          python-version: '3.9'
 
       - name: Install dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y \
-            git \
-            curl \
-            wget \
-            build-essential \
-            libcurl4-openssl-dev \
-            libssl-dev \
-            libglib2.0-dev \
-            libfreetype6-dev \
-            libfontconfig1-dev \
-            libx11-dev \
-            libxrender-dev \
-            libpng-dev \
-            libjpeg-dev \
-            libgif-dev \
-            libicu-dev \
-            libharfbuzz-dev \
-            qt5-qmake \
-            qtbase5-dev \
-            p7zip-full \
-            nodejs \
-            npm
+            git curl wget build-essential \
+            libcurl4-openssl-dev libssl-dev \
+            libglib2.0-dev libfreetype6-dev \
+            libfontconfig1-dev libx11-dev \
+            libxrender-dev libpng-dev \
+            libjpeg-dev libgif-dev \
+            libicu-dev libharfbuzz-dev \
+            qt5-qmake qtbase5-dev \
+            p7zip-full nodejs npm \
+            default-jdk
 
       - name: Clone build_tools
         run: |
-          git clone --depth 1 https://github.com/nicedoc/build_tools.git /tmp/build_tools
+          git clone https://github.com/nicedoc/build_tools.git /tmp/build_tools
           cd /tmp/build_tools
-          git submodule update --init --recursive || true
 
-      - name: Configure build
+      - name: Fetch sources and apply patch
         run: |
           cd /tmp/build_tools
-          # 빌드 설정 파일 생성
-          cat > configure.py << 'EOF'
-          import config
 
-          config.branding = ""
-          config.option("platform", "linux_64")
-          config.option("module", "server")
-          config.option("clean", "0")
-          config.option("sdkjs-branding", "")
-          EOF
+          # 소스 다운로드만 먼저 실행
+          python3 make.py --platform linux_64 --module sdkjs --update 1 --no-build 1 || true
 
-      - name: Apply HWP shortcuts patch to SDKJS
+          # SDKJS 소스 위치 찾기
+          echo "Finding Keyboard.js..."
+          find /tmp -name "Keyboard.js" -path "*/word/*" 2>/dev/null | head -5
+
+          # 가능한 위치들 확인
+          for dir in "/tmp/build_tools/sdkjs" "/tmp/build_tools/core/sdkjs" "/tmp/sdkjs"; do
+            if [ -d "$dir" ]; then
+              echo "Found sdkjs at: $dir"
+              ls -la "$dir" || true
+            fi
+          done
+
+      - name: Apply HWP shortcuts patch
         run: |
-          # build_tools가 소스를 다운로드한 후 패치 적용
-          cd /tmp/build_tools
-          python configure.py
-          python make.py --platform linux_64 --module server --update 1 --clean 0
-
           # SDKJS Keyboard.js 패치
-          KEYBOARD_FILE="/tmp/build_tools/out/linux_64/sdkjs/word/Editor/Keyboard.js"
-          if [ -f "$KEYBOARD_FILE" ]; then
-            echo "Applying HWP shortcuts patch to Keyboard.js..."
+          KEYBOARD_FILE=$(find /tmp -name "Keyboard.js" -path "*/word/Editor/*" 2>/dev/null | head -1)
+
+          if [ -n "$KEYBOARD_FILE" ] && [ -f "$KEYBOARD_FILE" ]; then
+            echo "Found Keyboard.js at: $KEYBOARD_FILE"
+            echo "Applying HWP shortcuts patch..."
             cat ${{ github.workspace }}/patches/hwp-keyboard-patch.js >> "$KEYBOARD_FILE"
             echo "Patch applied successfully"
+            tail -50 "$KEYBOARD_FILE"
           else
-            echo "WARNING: Keyboard.js not found at expected location"
-            find /tmp/build_tools -name "Keyboard.js" 2>/dev/null | head -5
+            echo "ERROR: Keyboard.js not found"
+            echo "Searching for any Keyboard.js files..."
+            find /tmp -name "Keyboard.js" 2>/dev/null
+            exit 1
           fi
 
-      - name: Build Document Server
+      - name: Build SDKJS
         run: |
           cd /tmp/build_tools
-          python make.py --platform linux_64 --module server --clean 0
+          python3 make.py --platform linux_64 --module sdkjs --clean 0
 
-      - name: Create Docker image
+      - name: Copy built SDKJS files
         run: |
-          cd /tmp/build_tools
-          # 빌드 결과물 확인
-          ls -la out/linux_64/ || true
+          mkdir -p ${{ github.workspace }}/sdkjs-build
 
-          # Docker 이미지 생성을 위한 파일 복사
-          mkdir -p ${{ github.workspace }}/documentserver-build
-          if [ -d "out/linux_64/documentserver" ]; then
-            cp -r out/linux_64/documentserver/* ${{ github.workspace }}/documentserver-build/
+          # 빌드 결과물 찾기
+          echo "Searching for built sdkjs files..."
+          find /tmp/build_tools -type d -name "deploy" 2>/dev/null | head -5
+
+          # 빌드된 SDKJS 복사
+          if [ -d "/tmp/build_tools/out/linux_64/sdkjs" ]; then
+            cp -r /tmp/build_tools/out/linux_64/sdkjs/* ${{ github.workspace }}/sdkjs-build/
+          elif [ -d "/tmp/build_tools/sdkjs/deploy" ]; then
+            cp -r /tmp/build_tools/sdkjs/deploy/sdkjs/* ${{ github.workspace }}/sdkjs-build/
           fi
+
+          ls -la ${{ github.workspace }}/sdkjs-build/ || echo "No files copied"
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: documentserver-build
-          path: documentserver-build/
+          name: sdkjs-hwp-build
+          path: sdkjs-build/
           retention-days: 7
           if-no-files-found: warn
