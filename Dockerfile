@@ -1,7 +1,7 @@
 FROM onlyoffice/documentserver:latest
 
-# Cache bust: 2024-01-31-v2
-# 이전 빌드 캐시 무효화용
+# Cache bust: 2024-01-31-v3
+# HWP 스크립트 주입 제거 후 원상복구
 
 # NGINX 설정 수정 (Railway 호환성)
 RUN mv /etc/init.d/nginx /etc/init.d/nginx.orig && \
@@ -67,18 +67,7 @@ RUN fc-cache -fv
 # ONLYOFFICE 폰트 등록
 RUN /usr/bin/documentserver-generate-allfonts.sh
 
-# ============================================
-# HWP 단축키 - 서버 사이드 스크립트 주입
-# ============================================
-# 방법: index.html에 스크립트 주입하여 런타임에 단축키 등록
-# 이 방식은 SDKJS 파일을 수정하지 않으므로 해시 검증 문제 없음
-
-COPY patches/hwp-shortcuts-inject.js /var/www/onlyoffice/documentserver/web-apps/apps/documenteditor/main/hwp-shortcuts.js
-
-# Word 에디터 index.html에 스크립트 태그 추가
-RUN sed -i 's|</head>|<script src="hwp-shortcuts.js"></script></head>|' \
-    /var/www/onlyoffice/documentserver/web-apps/apps/documenteditor/main/index.html 2>/dev/null || true && \
-    sed -i 's|</head>|<script src="hwp-shortcuts.js"></script></head>|' \
-    /var/www/onlyoffice/documentserver/web-apps/apps/documenteditor/main/index_loader.html 2>/dev/null || true
+# HWP 단축키 기능은 추후 다른 방식으로 구현 예정
+# (현재 index.html 수정 시 403 오류 발생)
 
 EXPOSE 80
