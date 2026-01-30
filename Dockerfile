@@ -1,5 +1,8 @@
 FROM onlyoffice/documentserver:latest
 
+# Cache bust: 2024-01-31-v2
+# 이전 빌드 캐시 무효화용
+
 # NGINX 설정 수정 (Railway 호환성)
 RUN mv /etc/init.d/nginx /etc/init.d/nginx.orig && \
     printf '#!/bin/bash\nrm -f /etc/nginx/sites-enabled/default\nfor f in /etc/nginx/conf.d/*.conf; do\n  [ -f "$f" ] && sed -i "s/listen 80;/listen 0.0.0.0:80;/g" "$f"\n  [ -f "$f" ] && sed -i "s/listen \\[::]:80 default_server;/#listen [::]:80 default_server;/g" "$f"\ndone\nexec /etc/init.d/nginx.orig "$@"\n' > /etc/init.d/nginx && \
