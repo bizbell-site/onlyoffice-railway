@@ -64,9 +64,6 @@ RUN mkdir -p /usr/share/fonts/truetype/ibm-plex && \
 # ============================================
 RUN fc-cache -fv
 
-# ONLYOFFICE 폰트 등록
-RUN /usr/bin/documentserver-generate-allfonts.sh
-
 # HWP 단축키 기능은 추후 다른 방식으로 구현 예정
 # (현재 index.html 수정 시 403 오류 발생)
 
