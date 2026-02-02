@@ -1,4 +1,4 @@
-FROM onlyoffice/documentserver:latest
+FROM onlyoffice/documentserver-de:latest
 
 # Railway nginx 설정
 RUN mv /etc/init.d/nginx /etc/init.d/nginx.orig && \
