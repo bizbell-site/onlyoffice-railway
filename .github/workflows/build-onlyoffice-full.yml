@@ -57,7 +57,24 @@ jobs:
             libasound2-dev libpulse-dev libnss3-dev libatk1.0-dev libatk-bridge2.0-dev \
             libdrm-dev libgbm-dev libxcomposite-dev libxdamage-dev libxfixes-dev \
             libxrandr-dev libxshmfence-dev libxkbcommon-dev \
-            fonts-nanum fonts-noto-cjk fonts-noto-cjk-extra
+            fonts-nanum fonts-noto-cjk fonts-noto-cjk-extra \
+            clang-14 lld-14 libc++-14-dev libc++abi-14-dev \
+            libstdc++-12-dev gcc-12 g++-12
+
+      - name: Set up compiler environment
+        run: |
+          # 시스템 Clang 사용하도록 설정
+          sudo update-alternatives --install /usr/bin/clang clang /usr/bin/clang-14 100
+          sudo update-alternatives --install /usr/bin/clang++ clang++ /usr/bin/clang++-14 100
+          sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-12 100
+          sudo update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-12 100
+
+          # 컴파일러 버전 확인
+          echo "=== Compiler versions ==="
+          clang --version
+          clang++ --version
+          gcc --version
+          g++ --version
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
