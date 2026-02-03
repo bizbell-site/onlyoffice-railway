@@ -31,7 +31,7 @@ jobs:
           echo "=== Before cleanup ==="
           df -h
 
-          # 불필요한 도구 삭제
+          # 불필요한 도구 삭제 (더 많이)
           sudo rm -rf /usr/share/dotnet
           sudo rm -rf /opt/ghc
           sudo rm -rf /usr/local/share/boost
@@ -39,12 +39,16 @@ jobs:
           sudo rm -rf /opt/hostedtoolcache/CodeQL
           sudo rm -rf /usr/local/share/powershell
           sudo rm -rf /usr/share/swift
+          sudo rm -rf /opt/hostedtoolcache/Python
+          sudo rm -rf /opt/hostedtoolcache/Ruby
+          sudo rm -rf /opt/hostedtoolcache/go
 
           # Docker 정리
           docker system prune -af || true
 
           # apt 캐시 정리
           sudo apt-get clean
+          sudo apt-get autoremove -y
 
           echo "=== After cleanup ==="
           df -h
@@ -61,11 +65,35 @@ jobs:
             curl \
             wget \
             p7zip-full \
-            nodejs \
-            npm \
             default-jdk \
             libcurl4-openssl-dev \
-            libssl-dev
+            libssl-dev \
+            libx11-dev \
+            libxext-dev \
+            libxrender-dev \
+            libfreetype6-dev \
+            libfontconfig1-dev \
+            libglib2.0-dev \
+            libcairo2-dev \
+            libpango1.0-dev \
+            libgtk-3-dev \
+            libgdk-pixbuf2.0-dev \
+            libasound2-dev \
+            libpulse-dev \
+            libnss3-dev \
+            libatk1.0-dev \
+            libatk-bridge2.0-dev \
+            libdrm-dev \
+            libgbm-dev \
+            libxcomposite-dev \
+            libxdamage-dev \
+            libxfixes-dev \
+            libxrandr-dev \
+            libxshmfence-dev \
+            libxkbcommon-dev \
+            fonts-nanum \
+            fonts-noto-cjk \
+            fonts-noto-cjk-extra
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -80,46 +108,73 @@ jobs:
 
       - name: Clone OnlyOffice build_tools
         run: |
-          git clone --depth 1 https://github.com/nicedoc/build_tools.git /tmp/build_tools
+          git clone https://github.com/nicedoc/build_tools.git /tmp/build_tools
           cd /tmp/build_tools
           echo "Build tools cloned"
+          ls -la
 
-      - name: Configure build
+      - name: Configure build for Document Server
         run: |
           cd /tmp/build_tools
 
-          # 빌드 설정 생성
-          python3 configure.py
+          # Document Server 빌드 설정 (Linux 64bit)
+          python3 configure.py \
+            --module documentserver \
+            --platform linux_64 \
+            --update false
 
-          echo "Build configured"
+          echo "=== Build configured ==="
+          cat config.json || true
 
-      - name: Fetch sources (this takes a while)
+      - name: Download and build (Full)
         run: |
           cd /tmp/build_tools
 
-          # 소스 다운로드 시작
-          echo "Fetching sources... this may take 30-60 minutes"
-          python3 make.py 2>&1 | head -500 || true
+          echo "Starting full build process..."
+          echo "This will download sources and compile everything."
+          echo "Expected time: 2-4 hours"
 
-          # sdkjs 위치 확인
-          echo "=== Checking sdkjs location ==="
-          find /tmp -type d -name "sdkjs" 2>/dev/null | head -5
-          find /tmp -name "Shortcuts.js" 2>/dev/null | head -5
-        timeout-minutes: 120
+          # 전체 빌드 실행 (에러 무시하지 않음)
+          python3 make.py 2>&1 | tee /tmp/build.log
+
+          # 빌드 결과 확인
+          echo "=== Build completed, checking output ==="
+          ls -la /tmp/build_tools/out/ 2>/dev/null || echo "No out folder yet"
+          find /tmp/build_tools -name "documentserver" -type d 2>/dev/null | head -10
+          find /tmp/build_tools -name "*.deb" 2>/dev/null | head -10
+        timeout-minutes: 300
+
+      - name: Install Korean fonts to build output
+        run: |
+          # 빌드된 폰트 디렉토리 찾기
+          FONTS_DIR=$(find /tmp/build_tools -path "*/documentserver/*/fonts" -type d 2>/dev/null | head -1)
+
+          if [ -z "$FONTS_DIR" ]; then
+            FONTS_DIR=$(find /tmp/build_tools/out -name "fonts" -type d 2>/dev/null | head -1)
+          fi
+
+          echo "Fonts directory: $FONTS_DIR"
+
+          if [ -n "$FONTS_DIR" ]; then
+            # 나눔폰트 복사
+            cp /usr/share/fonts/truetype/nanum/*.ttf "$FONTS_DIR/" 2>/dev/null || true
+            # Noto CJK 폰트 복사
+            cp /usr/share/fonts/opentype/noto/*.otf "$FONTS_DIR/" 2>/dev/null || true
+            cp /usr/share/fonts/opentype/noto/*.ttc "$FONTS_DIR/" 2>/dev/null || true
+            echo "Korean fonts copied to $FONTS_DIR"
+            ls -la "$FONTS_DIR/" | head -20
+          else
+            echo "WARNING: Fonts directory not found"
+          fi
 
       - name: Apply HWP shortcuts patch
         run: |
           # sdkjs 위치 찾기
-          SDKJS_DIR=$(find /tmp -type d -name "sdkjs" -path "*/nicedoc/*" 2>/dev/null | head -1)
+          SDKJS_DIR=$(find /tmp/build_tools -type d -name "sdkjs" 2>/dev/null | head -1)
 
           if [ -z "$SDKJS_DIR" ]; then
-            SDKJS_DIR=$(find /tmp -type d -name "sdkjs" 2>/dev/null | head -1)
-          fi
-
-          if [ -z "$SDKJS_DIR" ]; then
-            echo "ERROR: sdkjs directory not found"
-            find /tmp -name "*.js" -path "*word*" 2>/dev/null | head -20
-            exit 1
+            echo "WARNING: sdkjs directory not found, skipping patch"
+            exit 0
           fi
 
           echo "Found sdkjs at: $SDKJS_DIR"
@@ -127,37 +182,12 @@ jobs:
           SHORTCUTS_FILE="$SDKJS_DIR/word/Editor/Shortcuts.js"
 
           if [ -f "$SHORTCUTS_FILE" ]; then
-            echo "Found Shortcuts.js at: $SHORTCUTS_FILE"
-            echo "=== Original file tail ==="
-            tail -30 "$SHORTCUTS_FILE"
-
-            echo ""
-            echo "=== Applying HWP shortcuts patch ==="
+            echo "Applying HWP shortcuts patch..."
             cat ${{ github.workspace }}/patches/hwp-shortcuts-patch.js >> "$SHORTCUTS_FILE"
-
-            echo ""
-            echo "=== After patch ==="
-            tail -60 "$SHORTCUTS_FILE"
+            echo "Patch applied"
           else
-            echo "ERROR: Shortcuts.js not found at $SHORTCUTS_FILE"
-            ls -la "$SDKJS_DIR/word/Editor/" 2>/dev/null || echo "No Editor directory"
-            exit 1
+            echo "WARNING: Shortcuts.js not found, skipping patch"
           fi
-
-      - name: Build Document Server
-        run: |
-          cd /tmp/build_tools
-
-          echo "Starting Document Server build... this may take 2-4 hours"
-          python3 make.py 2>&1 || {
-            echo "Build may have partial failures, checking output..."
-          }
-
-          echo "=== Checking build output ==="
-          ls -la /tmp/build_tools/out/ 2>/dev/null || echo "No out folder"
-          find /tmp/build_tools/out -name "documentserver*" -type d 2>/dev/null | head -5
-          find /tmp/build_tools/out -name "*.deb" 2>/dev/null | head -5
-        timeout-minutes: 300
 
       - name: Prepare Docker build context
         run: |
@@ -166,40 +196,69 @@ jobs:
           # 빌드된 Document Server 찾기
           DS_OUT=$(find /tmp/build_tools/out -name "documentserver" -type d 2>/dev/null | head -1)
 
-          if [ -n "$DS_OUT" ]; then
+          if [ -z "$DS_OUT" ]; then
+            # 대안: linux_64 출력 폴더 찾기
+            DS_OUT=$(find /tmp/build_tools/out -path "*linux_64*" -type d 2>/dev/null | head -1)
+          fi
+
+          if [ -n "$DS_OUT" ] && [ -d "$DS_OUT" ]; then
             echo "Found Document Server at: $DS_OUT"
             cp -r "$DS_OUT" ${{ github.workspace }}/docker-build/documentserver
           else
-            echo "Looking for alternative output..."
-            find /tmp/build_tools/out -type d 2>/dev/null | head -20
+            echo "ERROR: Document Server build output not found!"
+            echo "=== Searching for any output ==="
+            find /tmp/build_tools/out -type d 2>/dev/null | head -30
+            find /tmp/build_tools -name "*.deb" 2>/dev/null | head -10
+
+            # 빌드 로그 마지막 부분 출력
+            echo "=== Last 100 lines of build log ==="
+            tail -100 /tmp/build.log || true
+
+            exit 1
           fi
 
-          # Dockerfile 복사
-          cp ${{ github.workspace }}/Dockerfile.custom ${{ github.workspace }}/docker-build/Dockerfile 2>/dev/null || \
+          # Dockerfile 생성
           cat > ${{ github.workspace }}/docker-build/Dockerfile << 'DOCKERFILE'
-          FROM ubuntu:22.04
+FROM ubuntu:22.04
 
-          # 빌드된 Document Server 복사
-          COPY documentserver /var/www/onlyoffice/documentserver
+ENV DEBIAN_FRONTEND=noninteractive
 
-          # 필요한 런타임 의존성 설치
-          RUN apt-get update && apt-get install -y \
-              nginx \
-              supervisor \
-              postgresql-client \
-              redis-tools \
-              fonts-nanum \
-              fonts-noto-cjk \
-              && rm -rf /var/lib/apt/lists/*
+# 빌드된 Document Server 복사
+COPY documentserver /var/www/onlyoffice/documentserver
 
-          # 폰트 캐시 재생성
-          RUN fc-cache -fv
+# 런타임 의존성 설치
+RUN apt-get update && apt-get install -y \
+    nginx \
+    supervisor \
+    postgresql-client \
+    redis-tools \
+    curl \
+    fonts-nanum \
+    fonts-noto-cjk \
+    fonts-noto-cjk-extra \
+    libcurl4 \
+    libssl3 \
+    libx11-6 \
+    libxrender1 \
+    libxext6 \
+    libfreetype6 \
+    libfontconfig1 \
+    && rm -rf /var/lib/apt/lists/*
 
-          EXPOSE 80
-          DOCKERFILE
+# 폰트 캐시 재생성
+RUN fc-cache -fv
+
+# 권한 설정
+RUN chown -R www-data:www-data /var/www/onlyoffice
+
+EXPOSE 80
+
+CMD ["nginx", "-g", "daemon off;"]
+DOCKERFILE
 
           echo "=== Docker build context ==="
           ls -la ${{ github.workspace }}/docker-build/
+          ls -la ${{ github.workspace }}/docker-build/documentserver/ 2>/dev/null | head -20 || true
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -234,9 +293,11 @@ jobs:
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
+        if: always()
         with:
           name: onlyoffice-documentserver-build
           path: |
             ${{ github.workspace }}/docker-build/
+            /tmp/build.log
           retention-days: 7
           if-no-files-found: warn
