@@ -6,7 +6,7 @@ on:
       push_image:
         description: 'Push to GitHub Container Registry'
         required: true
-        default: 'true'
+        default: true
         type: boolean
 
 env:
@@ -80,7 +80,7 @@ jobs:
       - name: Configure build for Document Server
         run: |
           cd /tmp/build_tools
-          python3 configure.py --module documentserver --platform linux_64 --update false
+          python3 configure.py --module documentserver --platform linux_64
           echo "=== Build configured ==="
           cat config.json || true
 
