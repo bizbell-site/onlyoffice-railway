@@ -1,16 +1,26 @@
 FROM onlyoffice/documentserver-de:latest
 
-# 한국어 폰트 설치
+# 한국어 폰트 전체 설치
 RUN apt-get update && apt-get install -y \
     fonts-nanum \
+    fonts-nanum-extra \
+    fonts-nanum-coding \
     fonts-noto-cjk \
     fonts-noto-cjk-extra \
+    fonts-unfonts-core \
+    fonts-unfonts-extra \
+    fonts-baekmuk \
+    fonts-alee \
+    fonts-liberation \
+    fonts-liberation2 \
+    fonts-dejavu-core \
+    fonts-dejavu-extra \
     && rm -rf /var/lib/apt/lists/*
 
-# 폰트를 OnlyOffice 폰트 디렉토리에 복사
-RUN cp /usr/share/fonts/truetype/nanum/*.ttf /var/www/onlyoffice/documentserver/core-fonts/ 2>/dev/null || true && \
-    cp /usr/share/fonts/opentype/noto/*.otf /var/www/onlyoffice/documentserver/core-fonts/ 2>/dev/null || true && \
-    cp /usr/share/fonts/opentype/noto/*.ttc /var/www/onlyoffice/documentserver/core-fonts/ 2>/dev/null || true
+# 모든 폰트를 OnlyOffice 폰트 디렉토리에 복사
+RUN find /usr/share/fonts -name "*.ttf" -exec cp {} /var/www/onlyoffice/documentserver/core-fonts/ \; 2>/dev/null || true && \
+    find /usr/share/fonts -name "*.otf" -exec cp {} /var/www/onlyoffice/documentserver/core-fonts/ \; 2>/dev/null || true && \
+    find /usr/share/fonts -name "*.ttc" -exec cp {} /var/www/onlyoffice/documentserver/core-fonts/ \; 2>/dev/null || true
 
 # 폰트 목록 재생성 (새 폰트 인식)
 RUN /usr/bin/documentserver-generate-allfonts.sh || true
