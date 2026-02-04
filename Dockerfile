@@ -28,27 +28,41 @@ RUN /usr/bin/documentserver-generate-allfonts.sh || true
 # HWP 스타일 단축키 패치 복사
 COPY patches/hwp-shortcuts-patch.js /tmp/hwp-shortcuts-patch.js
 
-# 디버깅: Shortcuts.js 파일 위치 찾기
-RUN echo "=== Searching for Shortcuts.js ===" && \
-    find /var/www -name "Shortcuts.js" 2>/dev/null && \
-    echo "=== Searching for sdk-all*.js ===" && \
-    find /var/www -name "sdk-all*.js" 2>/dev/null | head -5 && \
-    echo "=== Searching for word editor files ===" && \
-    find /var/www -type d -name "word" 2>/dev/null | head -5
+# 디버깅: sdkjs 폴더 구조 확인
+RUN echo "=== SDKJS folder structure ===" && \
+    ls -la /var/www/onlyoffice/documentserver/sdkjs/ && \
+    echo "=== Word folder ===" && \
+    ls -la /var/www/onlyoffice/documentserver/sdkjs/word/ 2>/dev/null || echo "word folder not found" && \
+    echo "=== Looking for any JS files in word folder ===" && \
+    find /var/www/onlyoffice/documentserver/sdkjs/word -name "*.js" 2>/dev/null | head -10 && \
+    echo "=== Looking for sdk*.js anywhere ===" && \
+    find /var/www/onlyoffice/documentserver -name "sdk*.js" 2>/dev/null | head -10 && \
+    echo "=== Web-apps folder ===" && \
+    ls -la /var/www/onlyoffice/documentserver/web-apps/ 2>/dev/null | head -10 && \
+    echo "=== Looking for app.js in web-apps ===" && \
+    find /var/www/onlyoffice/documentserver/web-apps -name "app.js" 2>/dev/null | head -5
 
-# HWP 단축키 패치 적용 (여러 방법 시도)
-RUN SHORTCUTS_FILE=$(find /var/www -name "Shortcuts.js" 2>/dev/null | head -1) && \
-    if [ -n "$SHORTCUTS_FILE" ] && [ -f "$SHORTCUTS_FILE" ]; then \
-        cat /tmp/hwp-shortcuts-patch.js >> "$SHORTCUTS_FILE" && \
-        echo "HWP shortcuts patched to: $SHORTCUTS_FILE"; \
+# HWP 단축키 패치 적용 (Word 에디터 JS 파일에)
+RUN echo "=== Applying HWP patch ===" && \
+    WORD_SDK=$(find /var/www/onlyoffice/documentserver/sdkjs/word -name "*.js" 2>/dev/null | head -1) && \
+    if [ -n "$WORD_SDK" ] && [ -f "$WORD_SDK" ]; then \
+        cat /tmp/hwp-shortcuts-patch.js >> "$WORD_SDK" && \
+        echo "HWP shortcuts patched to WORD SDK: $WORD_SDK"; \
     else \
-        echo "Shortcuts.js not found, trying sdk-all.js..."; \
-        SDK_FILE=$(find /var/www -name "sdk-all.js" 2>/dev/null | head -1); \
-        if [ -n "$SDK_FILE" ] && [ -f "$SDK_FILE" ]; then \
-            cat /tmp/hwp-shortcuts-patch.js >> "$SDK_FILE" && \
-            echo "HWP shortcuts patched to: $SDK_FILE"; \
+        echo "Word SDK not found, trying web-apps..."; \
+        WEBAPP_JS=$(find /var/www/onlyoffice/documentserver/web-apps -name "app.js" -path "*documenteditor*" 2>/dev/null | head -1); \
+        if [ -n "$WEBAPP_JS" ] && [ -f "$WEBAPP_JS" ]; then \
+            cat /tmp/hwp-shortcuts-patch.js >> "$WEBAPP_JS" && \
+            echo "HWP shortcuts patched to web-app: $WEBAPP_JS"; \
         else \
-            echo "WARNING: No suitable JS file found for HWP patch"; \
+            echo "Trying any documenteditor JS..."; \
+            DOC_JS=$(find /var/www/onlyoffice/documentserver -path "*documenteditor*" -name "*.js" 2>/dev/null | head -1); \
+            if [ -n "$DOC_JS" ] && [ -f "$DOC_JS" ]; then \
+                cat /tmp/hwp-shortcuts-patch.js >> "$DOC_JS" && \
+                echo "HWP shortcuts patched to: $DOC_JS"; \
+            else \
+                echo "WARNING: No suitable Word editor JS file found"; \
+            fi; \
         fi; \
     fi
 
