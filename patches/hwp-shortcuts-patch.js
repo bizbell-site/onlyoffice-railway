@@ -71,17 +71,7 @@
 
         var added = [];
 
-        // ========== HWP 스타일 단축키 ==========
-
-        // Alt+L: 글자 모양 (Font Dialog)
-        if (t.OpenFontDialog !== undefined && addShortcut(t.OpenFontDialog, KEY.L, false, false, true, false)) {
-            added.push('Alt+L (글자 모양)');
-        }
-
-        // Alt+T: 문단 모양 (Paragraph Dialog)
-        if (t.OpenParagraphDialog !== undefined && addShortcut(t.OpenParagraphDialog, KEY.T, false, false, true, false)) {
-            added.push('Alt+T (문단 모양)');
-        }
+        // ========== HWP 스타일 단축키 (사용 가능한 타입 기반) ==========
 
         // Ctrl+]: 글자 크기 키우기
         if (t.IncreaseFontSize !== undefined && addShortcut(t.IncreaseFontSize, KEY.BracketRight, true, false, false, false)) {
@@ -91,11 +81,6 @@
         // Ctrl+[: 글자 크기 줄이기
         if (t.DecreaseFontSize !== undefined && addShortcut(t.DecreaseFontSize, KEY.BracketLeft, true, false, false, false)) {
             added.push('Ctrl+[ (글자 작게)');
-        }
-
-        // Ctrl+F10: 특수문자 (Insert Symbol)
-        if (t.InsertSymbol !== undefined && addShortcut(t.InsertSymbol, KEY.F10, true, false, false, false)) {
-            added.push('Ctrl+F10 (특수문자)');
         }
 
         // Ctrl+K: 하이퍼링크
@@ -108,45 +93,77 @@
             added.push('Ctrl+Enter (페이지 나누기)');
         }
 
-        // Ctrl+H: 찾아 바꾸기
-        if (t.Replace !== undefined && addShortcut(t.Replace, KEY.H, true, false, false, false)) {
+        // Ctrl+H: 찾아 바꾸기 (HWP 스타일)
+        if (t.OpenFindAndReplaceMenu !== undefined && addShortcut(t.OpenFindAndReplaceMenu, KEY.H, true, false, false, false)) {
             added.push('Ctrl+H (찾아 바꾸기)');
         }
 
-        // F3: 다음 찾기
-        if (t.FindNext !== undefined && addShortcut(t.FindNext, KEY.F3, false, false, false, false)) {
-            added.push('F3 (다음 찾기)');
+        // Ctrl+F: 찾기
+        if (t.OpenFindDialog !== undefined && addShortcut(t.OpenFindDialog, KEY.F, true, false, false, false)) {
+            added.push('Ctrl+F (찾기)');
         }
 
-        // Ctrl+Shift+L: 왼쪽 정렬
-        if (t.JustifyLeft !== undefined && addShortcut(t.JustifyLeft, KEY.L, true, true, false, false)) {
+        // Alt+L: 왼쪽 정렬 (HWP: 글자 모양 대신 정렬로 대체)
+        if (t.LeftPara !== undefined && addShortcut(t.LeftPara, KEY.L, false, false, true, false)) {
+            added.push('Alt+L (왼쪽 정렬)');
+        }
+
+        // Alt+C: 가운데 정렬
+        if (t.CenterPara !== undefined && addShortcut(t.CenterPara, KEY.C, false, false, true, false)) {
+            added.push('Alt+C (가운데 정렬)');
+        }
+
+        // Alt+R: 오른쪽 정렬
+        if (t.RightPara !== undefined && addShortcut(t.RightPara, KEY.R, false, false, true, false)) {
+            added.push('Alt+R (오른쪽 정렬)');
+        }
+
+        // Alt+J: 양쪽 정렬
+        if (t.JustifyPara !== undefined && addShortcut(t.JustifyPara, KEY.J, false, false, true, false)) {
+            added.push('Alt+J (양쪽 정렬)');
+        }
+
+        // Ctrl+Shift+L: 왼쪽 정렬 (대체)
+        if (t.LeftPara !== undefined && addShortcut(t.LeftPara, KEY.L, true, true, false, false)) {
             added.push('Ctrl+Shift+L (왼쪽 정렬)');
         }
 
+        // Ctrl+Shift+E: 가운데 정렬
+        if (t.CenterPara !== undefined && addShortcut(t.CenterPara, KEY.E, true, true, false, false)) {
+            added.push('Ctrl+Shift+E (가운데 정렬)');
+        }
+
         // Ctrl+Shift+R: 오른쪽 정렬
-        if (t.JustifyRight !== undefined && addShortcut(t.JustifyRight, KEY.R, true, true, false, false)) {
+        if (t.RightPara !== undefined && addShortcut(t.RightPara, KEY.R, true, true, false, false)) {
             added.push('Ctrl+Shift+R (오른쪽 정렬)');
         }
 
-        // Ctrl+Shift+C: 가운데 정렬
-        if (t.JustifyCenter !== undefined && addShortcut(t.JustifyCenter, KEY.C, true, true, false, false)) {
-            added.push('Ctrl+Shift+C (가운데 정렬)');
-        }
-
         // Ctrl+Shift+J: 양쪽 정렬
-        if (t.JustifyFull !== undefined && addShortcut(t.JustifyFull, KEY.J, true, true, false, false)) {
+        if (t.JustifyPara !== undefined && addShortcut(t.JustifyPara, KEY.J, true, true, false, false)) {
             added.push('Ctrl+Shift+J (양쪽 정렬)');
         }
 
-        // Ctrl+D: 글꼴 대화상자 (MS Word 호환)
-        if (t.OpenFontDialog !== undefined && addShortcut(t.OpenFontDialog, KEY.D, true, false, false, false)) {
-            added.push('Ctrl+D (글꼴)');
+        // Ctrl+B: 굵게
+        if (t.Bold !== undefined && addShortcut(t.Bold, KEY.B, true, false, false, false)) {
+            added.push('Ctrl+B (굵게)');
+        }
+
+        // Ctrl+I: 기울임
+        if (t.Italic !== undefined && addShortcut(t.Italic, KEY.I, true, false, false, false)) {
+            added.push('Ctrl+I (기울임)');
+        }
+
+        // Ctrl+U: 밑줄
+        if (t.Underline !== undefined && addShortcut(t.Underline, KEY.U, true, false, false, false)) {
+            added.push('Ctrl+U (밑줄)');
+        }
+
+        // Ctrl+D: 취소선
+        if (t.Strikeout !== undefined && addShortcut(t.Strikeout, KEY.D, true, false, false, false)) {
+            added.push('Ctrl+D (취소선)');
         }
 
         console.log('[BizBell] HWP shortcuts initialized:', added.length > 0 ? added.join(', ') : 'none');
-
-        // 디버깅: 사용 가능한 shortcut 타입들 출력
-        console.log('[BizBell] Available shortcut types:', Object.keys(t).filter(k => t[k] !== undefined).join(', '));
     }
 
     // 즉시 실행 시도 + DOM 로드 후에도 시도
