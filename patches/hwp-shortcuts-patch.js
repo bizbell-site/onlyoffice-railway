@@ -2,6 +2,7 @@
 // ============================================
 // HWP (한글) 스타일 단축키 - BizBell Custom
 // 한컴오피스 한글의 실제 단축키를 OnlyOffice에 최대한 매핑
+// 브라우저와 충돌하는 단축키는 제외
 // 참조: https://help.hancom.com/hoffice/multi/ko_kr/hwp/view/toolbar/shortcut(table).htm
 // ============================================
 
@@ -75,7 +76,16 @@
         var added = [];
 
         // ============================================================
-        // 한글(HWP) 단축키 최대 매핑
+        // 한글(HWP) 단축키 매핑 (브라우저 충돌 제외)
+        //
+        // 제외된 단축키 (브라우저와 충돌):
+        // - Ctrl+Shift+R: 브라우저 강력 새로고침
+        // - Ctrl+Shift+C: 브라우저 개발자 도구
+        // - Ctrl+Shift+J: 브라우저 콘솔
+        // - Ctrl+N: 브라우저 새 창
+        // - Ctrl+T: 브라우저 새 탭
+        // - Ctrl+W: 브라우저 탭 닫기
+        // - F5: 브라우저 새로고침
         // ============================================================
 
         // ===== 문단 정렬 =====
@@ -83,36 +93,39 @@
         if (t.LeftPara !== undefined && addShortcut(t.LeftPara, KEY.L, true, true, false, false)) {
             added.push('Ctrl+Shift+L (왼쪽 정렬)');
         }
-        // Ctrl+Shift+C: 가운데 정렬
-        if (t.CenterPara !== undefined && addShortcut(t.CenterPara, KEY.C, true, true, false, false)) {
-            added.push('Ctrl+Shift+C (가운데 정렬)');
-        }
-        // Ctrl+Shift+R: 오른쪽 정렬
-        if (t.RightPara !== undefined && addShortcut(t.RightPara, KEY.R, true, true, false, false)) {
-            added.push('Ctrl+Shift+R (오른쪽 정렬)');
-        }
-        // Ctrl+Shift+M: 양쪽 정렬
+        // Ctrl+Shift+M: 양쪽 정렬 (가운데 정렬 Ctrl+Shift+C는 브라우저와 충돌)
         if (t.JustifyPara !== undefined && addShortcut(t.JustifyPara, KEY.M, true, true, false, false)) {
             added.push('Ctrl+Shift+M (양쪽 정렬)');
         }
+        // Ctrl+Shift+T: 배분 정렬 (한글 기본)
+        // 참고: Ctrl+Shift+R (오른쪽)과 Ctrl+Shift+C (가운데)는 브라우저 충돌로 제외
 
         // ===== 글자 서식 =====
-        // Ctrl+B / Alt+Shift+B: 진하게
-        if (t.Bold !== undefined) {
-            if (addShortcut(t.Bold, KEY.B, true, false, false, false)) added.push('Ctrl+B (진하게)');
-            if (addShortcut(t.Bold, KEY.B, false, true, true, false)) added.push('Alt+Shift+B (진하게)');
+        // Ctrl+B: 진하게
+        if (t.Bold !== undefined && addShortcut(t.Bold, KEY.B, true, false, false, false)) {
+            added.push('Ctrl+B (진하게)');
         }
-        // Ctrl+I / Alt+Shift+I: 기울임
-        if (t.Italic !== undefined) {
-            if (addShortcut(t.Italic, KEY.I, true, false, false, false)) added.push('Ctrl+I (기울임)');
-            if (addShortcut(t.Italic, KEY.I, false, true, true, false)) added.push('Alt+Shift+I (기울임)');
+        // Alt+Shift+B: 진하게 (대체)
+        if (t.Bold !== undefined && addShortcut(t.Bold, KEY.B, false, true, true, false)) {
+            added.push('Alt+Shift+B (진하게)');
         }
-        // Ctrl+U / Alt+Shift+U: 밑줄
-        if (t.Underline !== undefined) {
-            if (addShortcut(t.Underline, KEY.U, true, false, false, false)) added.push('Ctrl+U (밑줄)');
-            if (addShortcut(t.Underline, KEY.U, false, true, true, false)) added.push('Alt+Shift+U (밑줄)');
+        // Ctrl+I: 기울임
+        if (t.Italic !== undefined && addShortcut(t.Italic, KEY.I, true, false, false, false)) {
+            added.push('Ctrl+I (기울임)');
         }
-        // 취소선
+        // Alt+Shift+I: 기울임 (대체)
+        if (t.Italic !== undefined && addShortcut(t.Italic, KEY.I, false, true, true, false)) {
+            added.push('Alt+Shift+I (기울임)');
+        }
+        // Ctrl+U: 밑줄
+        if (t.Underline !== undefined && addShortcut(t.Underline, KEY.U, true, false, false, false)) {
+            added.push('Ctrl+U (밑줄)');
+        }
+        // Alt+Shift+U: 밑줄 (대체)
+        if (t.Underline !== undefined && addShortcut(t.Underline, KEY.U, false, true, true, false)) {
+            added.push('Alt+Shift+U (밑줄)');
+        }
+        // Ctrl+D: 취소선
         if (t.Strikeout !== undefined && addShortcut(t.Strikeout, KEY.D, true, false, false, false)) {
             added.push('Ctrl+D (취소선)');
         }
@@ -124,40 +137,56 @@
         if (t.Subscript !== undefined && addShortcut(t.Subscript, KEY.S, false, true, true, false)) {
             added.push('Alt+Shift+S (아래첨자)');
         }
+        // Alt+Shift+C: 보통 모양 (서식 초기화)
+        if (t.ResetChar !== undefined && addShortcut(t.ResetChar, KEY.C, false, true, true, false)) {
+            added.push('Alt+Shift+C (보통 모양)');
+        }
 
         // ===== 글자 크기 =====
-        // Ctrl+] / Alt+Shift+E: 글자 크게
-        if (t.IncreaseFontSize !== undefined) {
-            if (addShortcut(t.IncreaseFontSize, KEY.BracketRight, true, false, false, false)) added.push('Ctrl+] (글자 크게)');
-            if (addShortcut(t.IncreaseFontSize, KEY.E, false, true, true, false)) added.push('Alt+Shift+E (글자 크게)');
+        // Ctrl+]: 글자 크게
+        if (t.IncreaseFontSize !== undefined && addShortcut(t.IncreaseFontSize, KEY.BracketRight, true, false, false, false)) {
+            added.push('Ctrl+] (글자 크게)');
         }
-        // Ctrl+[ / Alt+Shift+R: 글자 작게
-        if (t.DecreaseFontSize !== undefined) {
-            if (addShortcut(t.DecreaseFontSize, KEY.BracketLeft, true, false, false, false)) added.push('Ctrl+[ (글자 작게)');
-            if (addShortcut(t.DecreaseFontSize, KEY.R, false, true, true, false)) added.push('Alt+Shift+R (글자 작게)');
+        // Alt+Shift+E: 글자 크게 (한글 기본)
+        if (t.IncreaseFontSize !== undefined && addShortcut(t.IncreaseFontSize, KEY.E, false, true, true, false)) {
+            added.push('Alt+Shift+E (글자 크게)');
         }
+        // Ctrl+[: 글자 작게
+        if (t.DecreaseFontSize !== undefined && addShortcut(t.DecreaseFontSize, KEY.BracketLeft, true, false, false, false)) {
+            added.push('Ctrl+[ (글자 작게)');
+        }
+        // 참고: Alt+Shift+R (글자 작게)는 Ctrl+Shift+R과 혼동 가능, 제외
 
         // ===== 찾기/바꾸기 =====
-        // Ctrl+F / F2: 찾기
-        if (t.OpenFindDialog !== undefined) {
-            if (addShortcut(t.OpenFindDialog, KEY.F, true, false, false, false)) added.push('Ctrl+F (찾기)');
-            if (addShortcut(t.OpenFindDialog, KEY.F2, false, false, false, false)) added.push('F2 (찾기)');
+        // Ctrl+F: 찾기
+        if (t.OpenFindDialog !== undefined && addShortcut(t.OpenFindDialog, KEY.F, true, false, false, false)) {
+            added.push('Ctrl+F (찾기)');
         }
-        // Ctrl+H / Ctrl+F2: 찾아 바꾸기
-        if (t.OpenFindAndReplaceMenu !== undefined) {
-            if (addShortcut(t.OpenFindAndReplaceMenu, KEY.H, true, false, false, false)) added.push('Ctrl+H (찾아 바꾸기)');
-            if (addShortcut(t.OpenFindAndReplaceMenu, KEY.F2, true, false, false, false)) added.push('Ctrl+F2 (찾아 바꾸기)');
+        // F2: 찾기 (한글 기본)
+        if (t.OpenFindDialog !== undefined && addShortcut(t.OpenFindDialog, KEY.F2, false, false, false, false)) {
+            added.push('F2 (찾기)');
+        }
+        // Ctrl+H: 찾아 바꾸기
+        if (t.OpenFindAndReplaceMenu !== undefined && addShortcut(t.OpenFindAndReplaceMenu, KEY.H, true, false, false, false)) {
+            added.push('Ctrl+H (찾아 바꾸기)');
+        }
+        // Ctrl+F2: 찾아 바꾸기 (한글 기본)
+        if (t.OpenFindAndReplaceMenu !== undefined && addShortcut(t.OpenFindAndReplaceMenu, KEY.F2, true, false, false, false)) {
+            added.push('Ctrl+F2 (찾아 바꾸기)');
         }
 
         // ===== 삽입 =====
-        // Ctrl+K,H 대신 Ctrl+K: 하이퍼링크
+        // Ctrl+K: 하이퍼링크
         if (t.InsertHyperlink !== undefined && addShortcut(t.InsertHyperlink, KEY.K, true, false, false, false)) {
             added.push('Ctrl+K (하이퍼링크)');
         }
-        // Ctrl+Enter / Ctrl+J: 쪽 나누기
-        if (t.InsertPageBreak !== undefined) {
-            if (addShortcut(t.InsertPageBreak, KEY.Enter, true, false, false, false)) added.push('Ctrl+Enter (쪽 나누기)');
-            if (addShortcut(t.InsertPageBreak, KEY.J, true, false, false, false)) added.push('Ctrl+J (쪽 나누기)');
+        // Ctrl+Enter: 쪽 나누기
+        if (t.InsertPageBreak !== undefined && addShortcut(t.InsertPageBreak, KEY.Enter, true, false, false, false)) {
+            added.push('Ctrl+Enter (쪽 나누기)');
+        }
+        // Ctrl+J: 쪽 나누기 (한글 기본)
+        if (t.InsertPageBreak !== undefined && addShortcut(t.InsertPageBreak, KEY.J, true, false, false, false)) {
+            added.push('Ctrl+J (쪽 나누기)');
         }
         // Ctrl+Shift+Enter: 단 나누기
         if (t.InsertColumnBreak !== undefined && addShortcut(t.InsertColumnBreak, KEY.Enter, true, true, false, false)) {
@@ -166,14 +195,6 @@
         // Shift+Enter: 강제 줄 나누기
         if (t.InsertLineBreak !== undefined && addShortcut(t.InsertLineBreak, KEY.Enter, false, true, false, false)) {
             added.push('Shift+Enter (줄 나누기)');
-        }
-        // 각주
-        if (t.InsertFootnoteNow !== undefined && addShortcut(t.InsertFootnoteNow, KEY.N, true, false, false, false)) {
-            added.push('Ctrl+N (각주)');
-        }
-        // 미주
-        if (t.InsertEndnoteNow !== undefined && addShortcut(t.InsertEndnoteNow, KEY.E, true, false, false, false)) {
-            added.push('Ctrl+E (미주)');
         }
 
         // ===== 편집 =====
@@ -185,35 +206,32 @@
         if (t.EditRedo !== undefined && addShortcut(t.EditRedo, KEY.Z, true, true, false, false)) {
             added.push('Ctrl+Shift+Z (다시 실행)');
         }
-        // Ctrl+Y: 한 줄 지우기 (한글) -> OnlyOffice에서는 Redo로 동작할 수 있음
+        // Ctrl+Y: 다시 실행 (OnlyOffice 기본)
+        if (t.EditRedo !== undefined && addShortcut(t.EditRedo, KEY.Y, true, false, false, false)) {
+            added.push('Ctrl+Y (다시 실행)');
+        }
         // Ctrl+A: 모두 선택
         if (t.EditSelectAll !== undefined && addShortcut(t.EditSelectAll, KEY.A, true, false, false, false)) {
             added.push('Ctrl+A (모두 선택)');
         }
-        // Ctrl+X / Shift+Delete: 오려 두기
-        if (t.Cut !== undefined) {
-            if (addShortcut(t.Cut, KEY.X, true, false, false, false)) added.push('Ctrl+X (오려 두기)');
-            if (addShortcut(t.Cut, KEY.Delete, false, true, false, false)) added.push('Shift+Delete (오려 두기)');
+        // Ctrl+X: 오려 두기
+        if (t.Cut !== undefined && addShortcut(t.Cut, KEY.X, true, false, false, false)) {
+            added.push('Ctrl+X (오려 두기)');
         }
-        // Ctrl+C / Ctrl+Insert: 복사하기
-        if (t.Copy !== undefined) {
-            if (addShortcut(t.Copy, KEY.C, true, false, false, false)) added.push('Ctrl+C (복사하기)');
+        // Shift+Delete: 오려 두기 (한글 기본)
+        if (t.Cut !== undefined && addShortcut(t.Cut, KEY.Delete, false, true, false, false)) {
+            added.push('Shift+Delete (오려 두기)');
         }
-        // Ctrl+V / Shift+Insert: 붙이기
-        if (t.Paste !== undefined) {
-            if (addShortcut(t.Paste, KEY.V, true, false, false, false)) added.push('Ctrl+V (붙이기)');
-            if (addShortcut(t.Paste, KEY.Insert, false, true, false, false)) added.push('Shift+Insert (붙이기)');
+        // Ctrl+C: 복사하기
+        if (t.Copy !== undefined && addShortcut(t.Copy, KEY.C, true, false, false, false)) {
+            added.push('Ctrl+C (복사하기)');
+        }
+        // Ctrl+V: 붙이기
+        if (t.Paste !== undefined && addShortcut(t.Paste, KEY.V, true, false, false, false)) {
+            added.push('Ctrl+V (붙이기)');
         }
 
         // ===== 커서 이동 =====
-        // Ctrl+Home: 화면 처음으로
-        if (t.MoveToStartDocument !== undefined && addShortcut(t.MoveToStartDocument, KEY.Home, true, false, false, false)) {
-            added.push('Ctrl+Home (문서 처음)');
-        }
-        // Ctrl+End: 화면 끝으로
-        if (t.MoveToEndDocument !== undefined && addShortcut(t.MoveToEndDocument, KEY.End, true, false, false, false)) {
-            added.push('Ctrl+End (문서 끝)');
-        }
         // Home: 줄 처음으로
         if (t.MoveToStartLine !== undefined && addShortcut(t.MoveToStartLine, KEY.Home, false, false, false, false)) {
             added.push('Home (줄 처음)');
@@ -222,21 +240,29 @@
         if (t.MoveToEndLine !== undefined && addShortcut(t.MoveToEndLine, KEY.End, false, false, false, false)) {
             added.push('End (줄 끝)');
         }
-        // Ctrl+PageUp: 문서의 처음으로
-        if (t.MoveToStartPreviousPage !== undefined && addShortcut(t.MoveToStartPreviousPage, KEY.PageUp, true, false, false, false)) {
-            added.push('Ctrl+PageUp (이전 쪽)');
+        // Ctrl+Home: 문서 처음으로
+        if (t.MoveToStartDocument !== undefined && addShortcut(t.MoveToStartDocument, KEY.Home, true, false, false, false)) {
+            added.push('Ctrl+Home (문서 처음)');
         }
-        // Ctrl+PageDown: 문서의 끝으로
-        if (t.MoveToStartNextPage !== undefined && addShortcut(t.MoveToStartNextPage, KEY.PageDown, true, false, false, false)) {
-            added.push('Ctrl+PageDown (다음 쪽)');
+        // Ctrl+End: 문서 끝으로
+        if (t.MoveToEndDocument !== undefined && addShortcut(t.MoveToEndDocument, KEY.End, true, false, false, false)) {
+            added.push('Ctrl+End (문서 끝)');
         }
-        // Ctrl+Right: 한 단어 오른쪽으로
+        // Ctrl+Right: 단어 끝으로
         if (t.MoveToEndWord !== undefined && addShortcut(t.MoveToEndWord, KEY.Right, true, false, false, false)) {
             added.push('Ctrl+Right (단어 끝)');
         }
-        // Ctrl+Left: 한 단어 왼쪽으로
+        // Ctrl+Left: 단어 시작으로
         if (t.MoveToStartWord !== undefined && addShortcut(t.MoveToStartWord, KEY.Left, true, false, false, false)) {
             added.push('Ctrl+Left (단어 시작)');
+        }
+        // Ctrl+PageUp: 이전 쪽
+        if (t.MoveToStartPreviousPage !== undefined && addShortcut(t.MoveToStartPreviousPage, KEY.PageUp, true, false, false, false)) {
+            added.push('Ctrl+PageUp (이전 쪽)');
+        }
+        // Ctrl+PageDown: 다음 쪽
+        if (t.MoveToStartNextPage !== undefined && addShortcut(t.MoveToStartNextPage, KEY.PageDown, true, false, false, false)) {
+            added.push('Ctrl+PageDown (다음 쪽)');
         }
 
         // ===== 선택 =====
@@ -268,33 +294,31 @@
         }
 
         // ===== 파일 =====
-        // Ctrl+S / Alt+S: 저장하기
-        if (t.Save !== undefined) {
-            if (addShortcut(t.Save, KEY.S, true, false, false, false)) added.push('Ctrl+S (저장)');
-            if (addShortcut(t.Save, KEY.S, false, false, true, false)) added.push('Alt+S (저장)');
+        // Ctrl+S: 저장
+        if (t.Save !== undefined && addShortcut(t.Save, KEY.S, true, false, false, false)) {
+            added.push('Ctrl+S (저장)');
         }
-        // Ctrl+P / Alt+P: 인쇄
-        if (t.PrintPreviewAndPrint !== undefined) {
-            if (addShortcut(t.PrintPreviewAndPrint, KEY.P, true, false, false, false)) added.push('Ctrl+P (인쇄)');
-            if (addShortcut(t.PrintPreviewAndPrint, KEY.P, false, false, true, false)) added.push('Alt+P (인쇄)');
+        // Alt+S: 저장 (한글 기본)
+        if (t.Save !== undefined && addShortcut(t.Save, KEY.S, false, false, true, false)) {
+            added.push('Alt+S (저장)');
+        }
+        // Ctrl+P: 인쇄
+        if (t.PrintPreviewAndPrint !== undefined && addShortcut(t.PrintPreviewAndPrint, KEY.P, true, false, false, false)) {
+            added.push('Ctrl+P (인쇄)');
+        }
+        // Alt+P: 인쇄 (한글 기본)
+        if (t.PrintPreviewAndPrint !== undefined && addShortcut(t.PrintPreviewAndPrint, KEY.P, false, false, true, false)) {
+            added.push('Alt+P (인쇄)');
         }
 
         // ===== 보기 =====
-        // 화면 확대 100%
+        // Ctrl+0: 화면 확대 100%
         if (t.Zoom100 !== undefined && addShortcut(t.Zoom100, KEY.Num0, true, false, false, false)) {
             added.push('Ctrl+0 (100% 확대)');
         }
-        // 화면 확대
-        if (t.ZoomIn !== undefined && addShortcut(t.ZoomIn, KEY.Equal, true, false, false, false)) {
-            added.push('Ctrl+= (확대)');
-        }
-        // 화면 축소
-        if (t.ZoomOut !== undefined && addShortcut(t.ZoomOut, KEY.Minus, true, false, false, false)) {
-            added.push('Ctrl+- (축소)');
-        }
 
-        // ===== 스타일/제목 =====
-        // Ctrl+1: 제목1 스타일 (한글: Ctrl+1~0 스타일)
+        // ===== 스타일 =====
+        // Ctrl+1/2/3: 제목 스타일 (한글 스타일 단축키와 유사)
         if (t.ApplyHeading1 !== undefined && addShortcut(t.ApplyHeading1, KEY.Num1, true, false, false, false)) {
             added.push('Ctrl+1 (제목1)');
         }
@@ -305,51 +329,38 @@
             added.push('Ctrl+3 (제목3)');
         }
 
-        // ===== 특수 문자 =====
-        // Em Dash (—)
+        // ===== 특수 문자 삽입 =====
+        // Ctrl+Alt+-: Em Dash (—)
         if (t.EmDash !== undefined && addShortcut(t.EmDash, KEY.Minus, true, false, true, false)) {
             added.push('Ctrl+Alt+- (Em Dash)');
         }
-        // En Dash (–)
-        if (t.EnDash !== undefined && addShortcut(t.EnDash, KEY.Minus, true, false, false, false)) {
-            // 이미 Ctrl+-가 축소로 사용될 수 있음
-        }
-        // 줄임표
+        // Ctrl+Alt+.: 줄임표 (…)
         if (t.HorizontalEllipsis !== undefined && addShortcut(t.HorizontalEllipsis, KEY.Period, true, false, true, false)) {
             added.push('Ctrl+Alt+. (줄임표)');
         }
-        // 저작권 기호
+        // Ctrl+Alt+C: 저작권 기호 (©)
         if (t.CopyrightSign !== undefined && addShortcut(t.CopyrightSign, KEY.C, true, false, true, false)) {
             added.push('Ctrl+Alt+C (©)');
         }
-        // 등록상표 기호
+        // Ctrl+Alt+R: 등록상표 기호 (®)
         if (t.RegisteredSign !== undefined && addShortcut(t.RegisteredSign, KEY.R, true, false, true, false)) {
             added.push('Ctrl+Alt+R (®)');
         }
-        // 상표 기호
+        // Ctrl+Alt+T: 상표 기호 (™)
         if (t.TrademarkSign !== undefined && addShortcut(t.TrademarkSign, KEY.T, true, false, true, false)) {
             added.push('Ctrl+Alt+T (™)');
         }
 
         // ===== 기타 =====
-        // 조판 부호 보이기 (한글: Ctrl+G,C)
-        if (t.ShowAll !== undefined && addShortcut(t.ShowAll, KEY.G, true, false, false, false)) {
-            added.push('Ctrl+G (조판 부호)');
-        }
-        // 서식 복사 (한글: Alt+C)
+        // Alt+C: 모양 복사 (한글 기본)
         if (t.CopyFormat !== undefined && addShortcut(t.CopyFormat, KEY.C, false, false, true, false)) {
             added.push('Alt+C (모양 복사)');
         }
-        // 서식 붙이기
-        if (t.PasteFormat !== undefined && addShortcut(t.PasteFormat, KEY.V, false, false, true, false)) {
-            added.push('Alt+V (모양 붙이기)');
-        }
-        // 수식 삽입
+        // Ctrl+Alt+E: 수식 삽입
         if (t.InsertEquation !== undefined && addShortcut(t.InsertEquation, KEY.E, true, false, true, false)) {
             added.push('Ctrl+Alt+E (수식)');
         }
-
-        // ===== 도움말 =====
+        // F1: 도움말
         if (t.OpenHelpMenu !== undefined && addShortcut(t.OpenHelpMenu, KEY.F1, false, false, false, false)) {
             added.push('F1 (도움말)');
         }
