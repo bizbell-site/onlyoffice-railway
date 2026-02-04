@@ -28,13 +28,28 @@ RUN /usr/bin/documentserver-generate-allfonts.sh || true
 # HWP 스타일 단축키 패치 복사
 COPY patches/hwp-shortcuts-patch.js /tmp/hwp-shortcuts-patch.js
 
-# HWP 단축키 패치 적용 (Shortcuts.js에 추가)
-RUN SHORTCUTS_FILE=$(find /var/www/onlyoffice/documentserver -name "Shortcuts.js" -path "*/word/*" 2>/dev/null | head -1) && \
+# 디버깅: Shortcuts.js 파일 위치 찾기
+RUN echo "=== Searching for Shortcuts.js ===" && \
+    find /var/www -name "Shortcuts.js" 2>/dev/null && \
+    echo "=== Searching for sdk-all*.js ===" && \
+    find /var/www -name "sdk-all*.js" 2>/dev/null | head -5 && \
+    echo "=== Searching for word editor files ===" && \
+    find /var/www -type d -name "word" 2>/dev/null | head -5
+
+# HWP 단축키 패치 적용 (여러 방법 시도)
+RUN SHORTCUTS_FILE=$(find /var/www -name "Shortcuts.js" 2>/dev/null | head -1) && \
     if [ -n "$SHORTCUTS_FILE" ] && [ -f "$SHORTCUTS_FILE" ]; then \
         cat /tmp/hwp-shortcuts-patch.js >> "$SHORTCUTS_FILE" && \
         echo "HWP shortcuts patched to: $SHORTCUTS_FILE"; \
     else \
-        echo "WARNING: Shortcuts.js not found, skipping HWP patch"; \
+        echo "Shortcuts.js not found, trying sdk-all.js..."; \
+        SDK_FILE=$(find /var/www -name "sdk-all.js" 2>/dev/null | head -1); \
+        if [ -n "$SDK_FILE" ] && [ -f "$SDK_FILE" ]; then \
+            cat /tmp/hwp-shortcuts-patch.js >> "$SDK_FILE" && \
+            echo "HWP shortcuts patched to: $SDK_FILE"; \
+        else \
+            echo "WARNING: No suitable JS file found for HWP patch"; \
+        fi; \
     fi
 
 # Railway nginx 설정
