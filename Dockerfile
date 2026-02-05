@@ -17,7 +17,7 @@ RUN apt-get update && apt-get install -y \
     fonts-dejavu-extra \
     && rm -rf /var/lib/apt/lists/*
 
-# 추가 한글 폰트 수동 설치 (D2Coding, Pretendard, IBM Plex Sans KR)
+# 추가 한글 폰트 수동 설치 (D2Coding, Pretendard, IBM Plex Sans KR, Gmarket Sans, 본명조)
 RUN apt-get update && apt-get install -y curl unzip && \
     # D2Coding (네이버 개발자 폰트)
     curl -L -o /tmp/D2Coding.zip https://github.com/naver/d2codingfont/releases/download/VER1.3.2/D2Coding-Ver1.3.2-20180524.zip && \
@@ -31,8 +31,16 @@ RUN apt-get update && apt-get install -y curl unzip && \
     curl -L -o /tmp/IBMPlexSansKR.zip https://github.com/IBM/plex/releases/download/v6.4.0/IBM-Plex-Sans-KR.zip && \
     unzip -o /tmp/IBMPlexSansKR.zip -d /tmp/ibmplex && \
     find /tmp/ibmplex -name "*.otf" -exec cp {} /var/www/onlyoffice/documentserver/core-fonts/ \; && \
+    # Gmarket Sans (G마켓 산스 - 강조/제목용)
+    curl -L -o /tmp/GmarketSans.zip https://corp.gmarket.com/fonts/GmarketSansOTF.zip && \
+    unzip -o /tmp/GmarketSans.zip -d /tmp/gmarketsans && \
+    find /tmp/gmarketsans -name "*.otf" -exec cp {} /var/www/onlyoffice/documentserver/core-fonts/ \; && \
+    # Source Han Serif KR (본명조 - 공식 문서용 명조체)
+    curl -L -o /tmp/SourceHanSerifKR.zip https://github.com/adobe-fonts/source-han-serif/releases/download/2.003R/08_SourceHanSerifK.zip && \
+    unzip -o /tmp/SourceHanSerifKR.zip -d /tmp/sourcehanserif && \
+    find /tmp/sourcehanserif -name "*.otf" -exec cp {} /var/www/onlyoffice/documentserver/core-fonts/ \; && \
     # 정리
-    rm -rf /tmp/*.zip /tmp/d2coding /tmp/pretendard /tmp/ibmplex /var/lib/apt/lists/*
+    rm -rf /tmp/*.zip /tmp/d2coding /tmp/pretendard /tmp/ibmplex /tmp/gmarketsans /tmp/sourcehanserif /var/lib/apt/lists/*
 
 # 모든 폰트를 OnlyOffice 폰트 디렉토리에 복사
 RUN find /usr/share/fonts -name "*.ttf" -exec cp {} /var/www/onlyoffice/documentserver/core-fonts/ \; 2>/dev/null || true && \
