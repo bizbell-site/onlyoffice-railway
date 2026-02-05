@@ -42,10 +42,13 @@ RUN apt-get update && apt-get install -y curl unzip && \
     # 정리
     rm -rf /tmp/*.zip /tmp/d2coding /tmp/pretendard /tmp/ibmplex /tmp/gmarketsans /tmp/sourcehanserif /var/lib/apt/lists/*
 
-# 모든 폰트를 OnlyOffice 폰트 디렉토리에 복사
+# 모든 apt 설치 폰트를 OnlyOffice 폰트 디렉토리에 복사
 RUN find /usr/share/fonts -name "*.ttf" -exec cp {} /var/www/onlyoffice/documentserver/core-fonts/ \; 2>/dev/null || true && \
     find /usr/share/fonts -name "*.otf" -exec cp {} /var/www/onlyoffice/documentserver/core-fonts/ \; 2>/dev/null || true && \
     find /usr/share/fonts -name "*.ttc" -exec cp {} /var/www/onlyoffice/documentserver/core-fonts/ \; 2>/dev/null || true
+
+# 정부 공고 문서용 한글 폰트 (맑은 고딕, HY헤드라인M, 굴림/돋움, 바탕/궁서)
+COPY fonts/ /var/www/onlyoffice/documentserver/core-fonts/
 
 # 폰트 목록 재생성 (새 폰트 인식)
 RUN /usr/bin/documentserver-generate-allfonts.sh || true
