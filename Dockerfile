@@ -17,6 +17,23 @@ RUN apt-get update && apt-get install -y \
     fonts-dejavu-extra \
     && rm -rf /var/lib/apt/lists/*
 
+# 추가 한글 폰트 수동 설치 (D2Coding, Pretendard, IBM Plex Sans KR)
+RUN apt-get update && apt-get install -y curl unzip && \
+    # D2Coding (네이버 개발자 폰트)
+    curl -L -o /tmp/D2Coding.zip https://github.com/naver/d2codingfont/releases/download/VER1.3.2/D2Coding-Ver1.3.2-20180524.zip && \
+    unzip -o /tmp/D2Coding.zip -d /tmp/d2coding && \
+    find /tmp/d2coding -name "*.ttf" -exec cp {} /var/www/onlyoffice/documentserver/core-fonts/ \; && \
+    # Pretendard
+    curl -L -o /tmp/Pretendard.zip https://github.com/orioncactus/pretendard/releases/download/v1.3.9/Pretendard-1.3.9.zip && \
+    unzip -o /tmp/Pretendard.zip -d /tmp/pretendard && \
+    find /tmp/pretendard -name "*.otf" -exec cp {} /var/www/onlyoffice/documentserver/core-fonts/ \; && \
+    # IBM Plex Sans KR
+    curl -L -o /tmp/IBMPlexSansKR.zip https://github.com/IBM/plex/releases/download/v6.4.0/IBM-Plex-Sans-KR.zip && \
+    unzip -o /tmp/IBMPlexSansKR.zip -d /tmp/ibmplex && \
+    find /tmp/ibmplex -name "*.otf" -exec cp {} /var/www/onlyoffice/documentserver/core-fonts/ \; && \
+    # 정리
+    rm -rf /tmp/*.zip /tmp/d2coding /tmp/pretendard /tmp/ibmplex /var/lib/apt/lists/*
+
 # 모든 폰트를 OnlyOffice 폰트 디렉토리에 복사
 RUN find /usr/share/fonts -name "*.ttf" -exec cp {} /var/www/onlyoffice/documentserver/core-fonts/ \; 2>/dev/null || true && \
     find /usr/share/fonts -name "*.otf" -exec cp {} /var/www/onlyoffice/documentserver/core-fonts/ \; 2>/dev/null || true && \
