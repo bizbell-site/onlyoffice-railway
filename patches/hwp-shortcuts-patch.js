@@ -1,382 +1,587 @@
-
-// ============================================
-// HWP (한글) 스타일 단축키 - BizBell Custom
-// 한컴오피스 한글의 실제 단축키를 OnlyOffice에 최대한 매핑
-// 브라우저와 충돌하는 단축키는 제외
-// 참조: https://help.hancom.com/hoffice/multi/ko_kr/hwp/view/toolbar/shortcut(table).htm
-// ============================================
+/**
+ * HWP/Word Keyboard Shortcuts Patch for OnlyOffice
+ *
+ * 한글(HWP) 또는 MS Word 스타일 단축키를 OnlyOffice Document Editor에 추가합니다.
+ * 사용자가 선택한 스타일에 따라 다른 단축키가 활성화됩니다.
+ *
+ * 총 62개 기본 단축키 + 스타일별 추가 단축키
+ */
 
 (function() {
-    'use strict';
+  'use strict';
 
-    function initHwpShortcuts() {
-        if (typeof Asc === 'undefined' ||
-            typeof Asc.c_oAscDocumentShortcutType === 'undefined' ||
-            typeof AscCommon === 'undefined' ||
-            typeof AscCommon.CShortcuts === 'undefined') {
-            setTimeout(initHwpShortcuts, 100);
-            return;
-        }
+  // localStorage 키
+  var SHORTCUT_STYLE_KEY = 'bizbell-shortcut-style';
 
-        var t = Asc.c_oAscDocumentShortcutType;
+  // 현재 스타일 (기본값: hwp)
+  var currentStyle = 'hwp';
 
-        // 키 해시 생성 함수
-        function makeKeyHash(keyCode, ctrl, shift, alt, cmd) {
-            var hash = keyCode;
-            if (ctrl) hash |= 0x0100;
-            if (shift) hash |= 0x0200;
-            if (alt) hash |= 0x0400;
-            if (cmd) hash |= 0x0800;
-            return hash;
-        }
+  // 등록된 단축키 목록 (로깅용)
+  var registeredShortcuts = [];
 
-        // 단축키 추가 함수
-        function addShortcut(type, keyCode, ctrl, shift, alt, cmd) {
-            if (type === undefined || type === null) return false;
-            try {
-                var hash = makeKeyHash(keyCode, ctrl, shift, alt, cmd);
-                if (AscCommon.CShortcuts.prototype && AscCommon.CShortcuts.prototype.Get) {
-                    var originalGet = AscCommon.CShortcuts.prototype.Get;
-                    if (!AscCommon.CShortcuts.prototype._bizbell_patched) {
-                        AscCommon.CShortcuts.prototype._bizbell_shortcuts = {};
-                        AscCommon.CShortcuts.prototype._bizbell_patched = true;
-                        AscCommon.CShortcuts.prototype.Get = function(nHash) {
-                            var custom = AscCommon.CShortcuts.prototype._bizbell_shortcuts[nHash];
-                            if (custom !== undefined) return custom;
-                            return originalGet.call(this, nHash);
-                        };
-                    }
-                    AscCommon.CShortcuts.prototype._bizbell_shortcuts[hash] = type;
-                    return true;
-                }
-                return false;
-            } catch(e) {
-                console.warn('[BizBell] Failed to add shortcut:', e);
-                return false;
-            }
-        }
+  // OnlyOffice API가 로드될 때까지 대기
+  var checkInterval = setInterval(function() {
+    if (typeof window.Asc !== 'undefined' && window.Asc.asc_docs_api) {
+      clearInterval(checkInterval);
+      setTimeout(initShortcuts, 500); // API 초기화 대기
+    }
+  }, 100);
 
-        // 키코드 정의
-        var KEY = {
-            A: 65, B: 66, C: 67, D: 68, E: 69, F: 70, G: 71, H: 72, I: 73, J: 74,
-            K: 75, L: 76, M: 77, N: 78, O: 79, P: 80, Q: 81, R: 82, S: 83, T: 84,
-            U: 85, V: 86, W: 87, X: 88, Y: 89, Z: 90,
-            Num0: 48, Num1: 49, Num2: 50, Num3: 51, Num4: 52,
-            Num5: 53, Num6: 54, Num7: 55, Num8: 56, Num9: 57,
-            F1: 112, F2: 113, F3: 114, F4: 115, F5: 116, F6: 117,
-            F7: 118, F8: 119, F9: 120, F10: 121, F11: 122, F12: 123,
-            Enter: 13, Tab: 9, Space: 32, Escape: 27, Backspace: 8, Delete: 46,
-            Left: 37, Up: 38, Right: 39, Down: 40,
-            Home: 36, End: 35, PageUp: 33, PageDown: 34,
-            BracketLeft: 219, BracketRight: 221,
-            Minus: 189, Equal: 187, Semicolon: 186, Quote: 222,
-            Comma: 188, Period: 190, Slash: 191, Backslash: 220
-        };
+  // 타임아웃 (15초)
+  setTimeout(function() {
+    clearInterval(checkInterval);
+  }, 15000);
 
-        var added = [];
+  function initShortcuts() {
+    console.log('[BizBell] Initializing keyboard shortcuts...');
 
-        // ============================================================
-        // 한글(HWP) 단축키 매핑 (브라우저 충돌 제외)
-        //
-        // 제외된 단축키 (브라우저와 충돌):
-        // - Ctrl+Shift+R: 브라우저 강력 새로고침
-        // - Ctrl+Shift+C: 브라우저 개발자 도구
-        // - Ctrl+Shift+J: 브라우저 콘솔
-        // - Ctrl+N: 브라우저 새 창
-        // - Ctrl+T: 브라우저 새 탭
-        // - Ctrl+W: 브라우저 탭 닫기
-        // - F5: 브라우저 새로고침
-        // ============================================================
-
-        // ===== 문단 정렬 =====
-        // Ctrl+Shift+L: 왼쪽 정렬
-        if (t.LeftPara !== undefined && addShortcut(t.LeftPara, KEY.L, true, true, false, false)) {
-            added.push('Ctrl+Shift+L (왼쪽 정렬)');
-        }
-        // Ctrl+Shift+M: 양쪽 정렬 (가운데 정렬 Ctrl+Shift+C는 브라우저와 충돌)
-        if (t.JustifyPara !== undefined && addShortcut(t.JustifyPara, KEY.M, true, true, false, false)) {
-            added.push('Ctrl+Shift+M (양쪽 정렬)');
-        }
-        // Ctrl+Shift+T: 배분 정렬 (한글 기본)
-        // 참고: Ctrl+Shift+R (오른쪽)과 Ctrl+Shift+C (가운데)는 브라우저 충돌로 제외
-
-        // ===== 글자 서식 =====
-        // Ctrl+B: 진하게
-        if (t.Bold !== undefined && addShortcut(t.Bold, KEY.B, true, false, false, false)) {
-            added.push('Ctrl+B (진하게)');
-        }
-        // Alt+Shift+B: 진하게 (대체)
-        if (t.Bold !== undefined && addShortcut(t.Bold, KEY.B, false, true, true, false)) {
-            added.push('Alt+Shift+B (진하게)');
-        }
-        // Ctrl+I: 기울임
-        if (t.Italic !== undefined && addShortcut(t.Italic, KEY.I, true, false, false, false)) {
-            added.push('Ctrl+I (기울임)');
-        }
-        // Alt+Shift+I: 기울임 (대체)
-        if (t.Italic !== undefined && addShortcut(t.Italic, KEY.I, false, true, true, false)) {
-            added.push('Alt+Shift+I (기울임)');
-        }
-        // Ctrl+U: 밑줄
-        if (t.Underline !== undefined && addShortcut(t.Underline, KEY.U, true, false, false, false)) {
-            added.push('Ctrl+U (밑줄)');
-        }
-        // Alt+Shift+U: 밑줄 (대체)
-        if (t.Underline !== undefined && addShortcut(t.Underline, KEY.U, false, true, true, false)) {
-            added.push('Alt+Shift+U (밑줄)');
-        }
-        // Ctrl+D: 취소선
-        if (t.Strikeout !== undefined && addShortcut(t.Strikeout, KEY.D, true, false, false, false)) {
-            added.push('Ctrl+D (취소선)');
-        }
-        // Alt+Shift+P: 위첨자
-        if (t.Superscript !== undefined && addShortcut(t.Superscript, KEY.P, false, true, true, false)) {
-            added.push('Alt+Shift+P (위첨자)');
-        }
-        // Alt+Shift+S: 아래첨자
-        if (t.Subscript !== undefined && addShortcut(t.Subscript, KEY.S, false, true, true, false)) {
-            added.push('Alt+Shift+S (아래첨자)');
-        }
-        // Alt+Shift+C: 보통 모양 (서식 초기화)
-        if (t.ResetChar !== undefined && addShortcut(t.ResetChar, KEY.C, false, true, true, false)) {
-            added.push('Alt+Shift+C (보통 모양)');
-        }
-
-        // ===== 글자 크기 =====
-        // Ctrl+]: 글자 크게
-        if (t.IncreaseFontSize !== undefined && addShortcut(t.IncreaseFontSize, KEY.BracketRight, true, false, false, false)) {
-            added.push('Ctrl+] (글자 크게)');
-        }
-        // Alt+Shift+E: 글자 크게 (한글 기본)
-        if (t.IncreaseFontSize !== undefined && addShortcut(t.IncreaseFontSize, KEY.E, false, true, true, false)) {
-            added.push('Alt+Shift+E (글자 크게)');
-        }
-        // Ctrl+[: 글자 작게
-        if (t.DecreaseFontSize !== undefined && addShortcut(t.DecreaseFontSize, KEY.BracketLeft, true, false, false, false)) {
-            added.push('Ctrl+[ (글자 작게)');
-        }
-        // 참고: Alt+Shift+R (글자 작게)는 Ctrl+Shift+R과 혼동 가능, 제외
-
-        // ===== 찾기/바꾸기 =====
-        // Ctrl+F: 찾기
-        if (t.OpenFindDialog !== undefined && addShortcut(t.OpenFindDialog, KEY.F, true, false, false, false)) {
-            added.push('Ctrl+F (찾기)');
-        }
-        // F2: 찾기 (한글 기본)
-        if (t.OpenFindDialog !== undefined && addShortcut(t.OpenFindDialog, KEY.F2, false, false, false, false)) {
-            added.push('F2 (찾기)');
-        }
-        // Ctrl+H: 찾아 바꾸기
-        if (t.OpenFindAndReplaceMenu !== undefined && addShortcut(t.OpenFindAndReplaceMenu, KEY.H, true, false, false, false)) {
-            added.push('Ctrl+H (찾아 바꾸기)');
-        }
-        // Ctrl+F2: 찾아 바꾸기 (한글 기본)
-        if (t.OpenFindAndReplaceMenu !== undefined && addShortcut(t.OpenFindAndReplaceMenu, KEY.F2, true, false, false, false)) {
-            added.push('Ctrl+F2 (찾아 바꾸기)');
-        }
-
-        // ===== 삽입 =====
-        // Ctrl+K: 하이퍼링크
-        if (t.InsertHyperlink !== undefined && addShortcut(t.InsertHyperlink, KEY.K, true, false, false, false)) {
-            added.push('Ctrl+K (하이퍼링크)');
-        }
-        // Ctrl+Enter: 쪽 나누기
-        if (t.InsertPageBreak !== undefined && addShortcut(t.InsertPageBreak, KEY.Enter, true, false, false, false)) {
-            added.push('Ctrl+Enter (쪽 나누기)');
-        }
-        // Ctrl+J: 쪽 나누기 (한글 기본)
-        if (t.InsertPageBreak !== undefined && addShortcut(t.InsertPageBreak, KEY.J, true, false, false, false)) {
-            added.push('Ctrl+J (쪽 나누기)');
-        }
-        // Ctrl+Shift+Enter: 단 나누기
-        if (t.InsertColumnBreak !== undefined && addShortcut(t.InsertColumnBreak, KEY.Enter, true, true, false, false)) {
-            added.push('Ctrl+Shift+Enter (단 나누기)');
-        }
-        // Shift+Enter: 강제 줄 나누기
-        if (t.InsertLineBreak !== undefined && addShortcut(t.InsertLineBreak, KEY.Enter, false, true, false, false)) {
-            added.push('Shift+Enter (줄 나누기)');
-        }
-
-        // ===== 편집 =====
-        // Ctrl+Z: 되돌리기
-        if (t.EditUndo !== undefined && addShortcut(t.EditUndo, KEY.Z, true, false, false, false)) {
-            added.push('Ctrl+Z (되돌리기)');
-        }
-        // Ctrl+Shift+Z: 다시 실행
-        if (t.EditRedo !== undefined && addShortcut(t.EditRedo, KEY.Z, true, true, false, false)) {
-            added.push('Ctrl+Shift+Z (다시 실행)');
-        }
-        // Ctrl+Y: 다시 실행 (OnlyOffice 기본)
-        if (t.EditRedo !== undefined && addShortcut(t.EditRedo, KEY.Y, true, false, false, false)) {
-            added.push('Ctrl+Y (다시 실행)');
-        }
-        // Ctrl+A: 모두 선택
-        if (t.EditSelectAll !== undefined && addShortcut(t.EditSelectAll, KEY.A, true, false, false, false)) {
-            added.push('Ctrl+A (모두 선택)');
-        }
-        // Ctrl+X: 오려 두기
-        if (t.Cut !== undefined && addShortcut(t.Cut, KEY.X, true, false, false, false)) {
-            added.push('Ctrl+X (오려 두기)');
-        }
-        // Shift+Delete: 오려 두기 (한글 기본)
-        if (t.Cut !== undefined && addShortcut(t.Cut, KEY.Delete, false, true, false, false)) {
-            added.push('Shift+Delete (오려 두기)');
-        }
-        // Ctrl+C: 복사하기
-        if (t.Copy !== undefined && addShortcut(t.Copy, KEY.C, true, false, false, false)) {
-            added.push('Ctrl+C (복사하기)');
-        }
-        // Ctrl+V: 붙이기
-        if (t.Paste !== undefined && addShortcut(t.Paste, KEY.V, true, false, false, false)) {
-            added.push('Ctrl+V (붙이기)');
-        }
-
-        // ===== 커서 이동 =====
-        // Home: 줄 처음으로
-        if (t.MoveToStartLine !== undefined && addShortcut(t.MoveToStartLine, KEY.Home, false, false, false, false)) {
-            added.push('Home (줄 처음)');
-        }
-        // End: 줄 끝으로
-        if (t.MoveToEndLine !== undefined && addShortcut(t.MoveToEndLine, KEY.End, false, false, false, false)) {
-            added.push('End (줄 끝)');
-        }
-        // Ctrl+Home: 문서 처음으로
-        if (t.MoveToStartDocument !== undefined && addShortcut(t.MoveToStartDocument, KEY.Home, true, false, false, false)) {
-            added.push('Ctrl+Home (문서 처음)');
-        }
-        // Ctrl+End: 문서 끝으로
-        if (t.MoveToEndDocument !== undefined && addShortcut(t.MoveToEndDocument, KEY.End, true, false, false, false)) {
-            added.push('Ctrl+End (문서 끝)');
-        }
-        // Ctrl+Right: 단어 끝으로
-        if (t.MoveToEndWord !== undefined && addShortcut(t.MoveToEndWord, KEY.Right, true, false, false, false)) {
-            added.push('Ctrl+Right (단어 끝)');
-        }
-        // Ctrl+Left: 단어 시작으로
-        if (t.MoveToStartWord !== undefined && addShortcut(t.MoveToStartWord, KEY.Left, true, false, false, false)) {
-            added.push('Ctrl+Left (단어 시작)');
-        }
-        // Ctrl+PageUp: 이전 쪽
-        if (t.MoveToStartPreviousPage !== undefined && addShortcut(t.MoveToStartPreviousPage, KEY.PageUp, true, false, false, false)) {
-            added.push('Ctrl+PageUp (이전 쪽)');
-        }
-        // Ctrl+PageDown: 다음 쪽
-        if (t.MoveToStartNextPage !== undefined && addShortcut(t.MoveToStartNextPage, KEY.PageDown, true, false, false, false)) {
-            added.push('Ctrl+PageDown (다음 쪽)');
-        }
-
-        // ===== 선택 =====
-        // Shift+Home: 줄 처음까지 선택
-        if (t.SelectToStartLine !== undefined && addShortcut(t.SelectToStartLine, KEY.Home, false, true, false, false)) {
-            added.push('Shift+Home (줄 처음까지 선택)');
-        }
-        // Shift+End: 줄 끝까지 선택
-        if (t.SelectToEndLine !== undefined && addShortcut(t.SelectToEndLine, KEY.End, false, true, false, false)) {
-            added.push('Shift+End (줄 끝까지 선택)');
-        }
-        // Ctrl+Shift+Home: 문서 처음까지 선택
-        if (t.SelectToStartDocument !== undefined && addShortcut(t.SelectToStartDocument, KEY.Home, true, true, false, false)) {
-            added.push('Ctrl+Shift+Home (문서 처음까지 선택)');
-        }
-        // Ctrl+Shift+End: 문서 끝까지 선택
-        if (t.SelectToEndDocument !== undefined && addShortcut(t.SelectToEndDocument, KEY.End, true, true, false, false)) {
-            added.push('Ctrl+Shift+End (문서 끝까지 선택)');
-        }
-
-        // ===== 들여쓰기 =====
-        // Tab: 들여쓰기
-        if (t.Indent !== undefined && addShortcut(t.Indent, KEY.Tab, false, false, false, false)) {
-            added.push('Tab (들여쓰기)');
-        }
-        // Shift+Tab: 내어쓰기
-        if (t.UnIndent !== undefined && addShortcut(t.UnIndent, KEY.Tab, false, true, false, false)) {
-            added.push('Shift+Tab (내어쓰기)');
-        }
-
-        // ===== 파일 =====
-        // Ctrl+S: 저장
-        if (t.Save !== undefined && addShortcut(t.Save, KEY.S, true, false, false, false)) {
-            added.push('Ctrl+S (저장)');
-        }
-        // Alt+S: 저장 (한글 기본)
-        if (t.Save !== undefined && addShortcut(t.Save, KEY.S, false, false, true, false)) {
-            added.push('Alt+S (저장)');
-        }
-        // Ctrl+P: 인쇄
-        if (t.PrintPreviewAndPrint !== undefined && addShortcut(t.PrintPreviewAndPrint, KEY.P, true, false, false, false)) {
-            added.push('Ctrl+P (인쇄)');
-        }
-        // Alt+P: 인쇄 (한글 기본)
-        if (t.PrintPreviewAndPrint !== undefined && addShortcut(t.PrintPreviewAndPrint, KEY.P, false, false, true, false)) {
-            added.push('Alt+P (인쇄)');
-        }
-
-        // ===== 보기 =====
-        // Ctrl+0: 화면 확대 100%
-        if (t.Zoom100 !== undefined && addShortcut(t.Zoom100, KEY.Num0, true, false, false, false)) {
-            added.push('Ctrl+0 (100% 확대)');
-        }
-
-        // ===== 스타일 =====
-        // Ctrl+1/2/3: 제목 스타일 (한글 스타일 단축키와 유사)
-        if (t.ApplyHeading1 !== undefined && addShortcut(t.ApplyHeading1, KEY.Num1, true, false, false, false)) {
-            added.push('Ctrl+1 (제목1)');
-        }
-        if (t.ApplyHeading2 !== undefined && addShortcut(t.ApplyHeading2, KEY.Num2, true, false, false, false)) {
-            added.push('Ctrl+2 (제목2)');
-        }
-        if (t.ApplyHeading3 !== undefined && addShortcut(t.ApplyHeading3, KEY.Num3, true, false, false, false)) {
-            added.push('Ctrl+3 (제목3)');
-        }
-
-        // ===== 특수 문자 삽입 =====
-        // Ctrl+Alt+-: Em Dash (—)
-        if (t.EmDash !== undefined && addShortcut(t.EmDash, KEY.Minus, true, false, true, false)) {
-            added.push('Ctrl+Alt+- (Em Dash)');
-        }
-        // Ctrl+Alt+.: 줄임표 (…)
-        if (t.HorizontalEllipsis !== undefined && addShortcut(t.HorizontalEllipsis, KEY.Period, true, false, true, false)) {
-            added.push('Ctrl+Alt+. (줄임표)');
-        }
-        // Ctrl+Alt+C: 저작권 기호 (©)
-        if (t.CopyrightSign !== undefined && addShortcut(t.CopyrightSign, KEY.C, true, false, true, false)) {
-            added.push('Ctrl+Alt+C (©)');
-        }
-        // Ctrl+Alt+R: 등록상표 기호 (®)
-        if (t.RegisteredSign !== undefined && addShortcut(t.RegisteredSign, KEY.R, true, false, true, false)) {
-            added.push('Ctrl+Alt+R (®)');
-        }
-        // Ctrl+Alt+T: 상표 기호 (™)
-        if (t.TrademarkSign !== undefined && addShortcut(t.TrademarkSign, KEY.T, true, false, true, false)) {
-            added.push('Ctrl+Alt+T (™)');
-        }
-
-        // ===== 기타 =====
-        // Alt+C: 모양 복사 (한글 기본)
-        if (t.CopyFormat !== undefined && addShortcut(t.CopyFormat, KEY.C, false, false, true, false)) {
-            added.push('Alt+C (모양 복사)');
-        }
-        // Ctrl+Alt+E: 수식 삽입
-        if (t.InsertEquation !== undefined && addShortcut(t.InsertEquation, KEY.E, true, false, true, false)) {
-            added.push('Ctrl+Alt+E (수식)');
-        }
-        // F1: 도움말
-        if (t.OpenHelpMenu !== undefined && addShortcut(t.OpenHelpMenu, KEY.F1, false, false, false, false)) {
-            added.push('F1 (도움말)');
-        }
-
-        console.log('[BizBell] HWP shortcuts initialized (' + added.length + '):', added.join(', '));
+    // localStorage에서 스타일 로드
+    try {
+      var saved = localStorage.getItem(SHORTCUT_STYLE_KEY);
+      if (saved === 'hwp' || saved === 'word') {
+        currentStyle = saved;
+      }
+    } catch (e) {
+      console.warn('[BizBell] Failed to load style:', e);
     }
 
-    initHwpShortcuts();
+    // 스타일 변경 이벤트 리스너 (CustomEvent)
+    window.addEventListener('shortcut-style-change', function(e) {
+      if (e.detail && (e.detail.style === 'hwp' || e.detail.style === 'word')) {
+        changeShortcutStyle(e.detail.style);
+      }
+    });
 
-    if (typeof document !== 'undefined') {
-        if (document.readyState === 'loading') {
-            document.addEventListener('DOMContentLoaded', initHwpShortcuts);
+    // 스타일 변경 메시지 리스너 (postMessage from parent)
+    window.addEventListener('message', function(e) {
+      if (e.data && e.data.type === 'bizbell-shortcut-style-change') {
+        if (e.data.style === 'hwp' || e.data.style === 'word') {
+          changeShortcutStyle(e.data.style);
         }
-        window.addEventListener('load', function() {
-            setTimeout(initHwpShortcuts, 1000);
-        });
+      }
+    });
+
+    function changeShortcutStyle(newStyle) {
+      if (newStyle === currentStyle) return;
+      var oldStyle = currentStyle;
+      currentStyle = newStyle;
+      try {
+        localStorage.setItem(SHORTCUT_STYLE_KEY, newStyle);
+      } catch (e) {}
+      console.log('[BizBell] Shortcut style changed:', oldStyle, '->', currentStyle);
+      reregisterStyleShortcuts();
     }
+
+    // 외부 API에서 사용할 수 있도록 저장
+    _changeShortcutStyle = changeShortcutStyle;
+
+    // 기본 단축키 등록 (공통)
+    registerCommonShortcuts();
+
+    // 스타일별 단축키 등록
+    registerStyleShortcuts();
+
+    // 등록된 단축키 로그 출력
+    console.log('[BizBell] HWP shortcuts initialized (' + registeredShortcuts.length + '):', registeredShortcuts.join(', '));
+  }
+
+  // ============================================================
+  // 공통 단축키 (한글/MS Word 동일)
+  // ============================================================
+  function registerCommonShortcuts() {
+    var api = window.Asc.asc_docs_api.prototype;
+    var shortcutManager = getShortcutManager();
+
+    if (!shortcutManager) {
+      console.warn('[BizBell] Shortcut manager not found, using fallback');
+      registerFallbackShortcuts();
+      return;
+    }
+
+    // 글꼴 서식
+    addShortcut('Ctrl+B', '진하게', function() { execCommand('Bold'); });
+    addShortcut('Ctrl+I', '기울임', function() { execCommand('Italic'); });
+    addShortcut('Ctrl+U', '밑줄', function() { execCommand('Underline'); });
+    addShortcut('Ctrl+D', '취소선', function() { execCommand('Strikeout'); });
+
+    // 글꼴 크기
+    addShortcut('Ctrl+]', '글자 크게', function() { execCommand('IncreaseFontSize'); });
+    addShortcut('Ctrl+[', '글자 작게', function() { execCommand('DecreaseFontSize'); });
+
+    // 찾기/바꾸기
+    addShortcut('Ctrl+F', '찾기', function() { execCommand('Find'); });
+    addShortcut('Ctrl+H', '찾아 바꾸기', function() { execCommand('Replace'); });
+
+    // 편집
+    addShortcut('Ctrl+Z', '되돌리기', function() { execCommand('Undo'); });
+    addShortcut('Ctrl+Shift+Z', '다시 실행', function() { execCommand('Redo'); });
+    addShortcut('Ctrl+Y', '다시 실행', function() { execCommand('Redo'); });
+    addShortcut('Ctrl+A', '모두 선택', function() { execCommand('SelectAll'); });
+    addShortcut('Ctrl+X', '오려 두기', function() { execCommand('Cut'); });
+    addShortcut('Ctrl+C', '복사하기', function() { execCommand('Copy'); });
+    addShortcut('Ctrl+V', '붙이기', function() { execCommand('Paste'); });
+
+    // 삽입
+    addShortcut('Ctrl+K', '하이퍼링크', function() { execCommand('InsertHyperlink'); });
+    addShortcut('Ctrl+Enter', '쪽 나누기', function() { execCommand('InsertPageBreak'); });
+    addShortcut('Ctrl+Shift+Enter', '단 나누기', function() { execCommand('InsertColumnBreak'); });
+    addShortcut('Shift+Enter', '줄 나누기', function() { execCommand('InsertLineBreak'); });
+
+    // 커서 이동
+    addShortcut('Home', '줄 처음', function() { execCommand('GoToStartOfLine'); });
+    addShortcut('End', '줄 끝', function() { execCommand('GoToEndOfLine'); });
+    addShortcut('Ctrl+Home', '문서 처음', function() { execCommand('GoToStartOfDocument'); });
+    addShortcut('Ctrl+End', '문서 끝', function() { execCommand('GoToEndOfDocument'); });
+    addShortcut('Ctrl+Right', '단어 끝', function() { execCommand('GoToNextWord'); });
+    addShortcut('Ctrl+Left', '단어 시작', function() { execCommand('GoToPrevWord'); });
+    addShortcut('Ctrl+PageUp', '이전 쪽', function() { execCommand('GoToPrevPage'); });
+    addShortcut('Ctrl+PageDown', '다음 쪽', function() { execCommand('GoToNextPage'); });
+
+    // 선택
+    addShortcut('Shift+Home', '줄 처음까지 선택', function() { execCommand('SelectToStartOfLine'); });
+    addShortcut('Shift+End', '줄 끝까지 선택', function() { execCommand('SelectToEndOfLine'); });
+    addShortcut('Ctrl+Shift+Home', '문서 처음까지 선택', function() { execCommand('SelectToStartOfDocument'); });
+    addShortcut('Ctrl+Shift+End', '문서 끝까지 선택', function() { execCommand('SelectToEndOfDocument'); });
+
+    // 들여쓰기
+    addShortcut('Tab', '들여쓰기', function() { execCommand('IncreaseIndent'); });
+    addShortcut('Shift+Tab', '내어쓰기', function() { execCommand('DecreaseIndent'); });
+
+    // 파일
+    addShortcut('Ctrl+S', '저장', function() { execCommand('Save'); });
+    addShortcut('Ctrl+P', '인쇄', function() { execCommand('Print'); });
+
+    // 확대/축소
+    addShortcut('Ctrl+0', '100% 확대', function() { execCommand('Zoom100'); });
+
+    // 스타일
+    addShortcut('Ctrl+1', '제목1', function() { execCommand('ApplyHeading1'); });
+    addShortcut('Ctrl+2', '제목2', function() { execCommand('ApplyHeading2'); });
+    addShortcut('Ctrl+3', '제목3', function() { execCommand('ApplyHeading3'); });
+
+    // 특수문자 삽입
+    addShortcut('Ctrl+Alt+-', 'Em Dash', function() { insertText('—'); });
+    addShortcut('Ctrl+Alt+.', '줄임표', function() { insertText('…'); });
+    addShortcut('Ctrl+Alt+C', '©', function() { insertText('©'); });
+    addShortcut('Ctrl+Alt+R', '®', function() { insertText('®'); });
+    addShortcut('Ctrl+Alt+T', '™', function() { insertText('™'); });
+
+    // 기타
+    addShortcut('F1', '도움말', function() { execCommand('Help'); });
+  }
+
+  // ============================================================
+  // 스타일별 단축키
+  // ============================================================
+  function registerStyleShortcuts() {
+    if (currentStyle === 'hwp') {
+      registerHwpShortcuts();
+    } else {
+      registerWordShortcuts();
+    }
+  }
+
+  function reregisterStyleShortcuts() {
+    // 기존 스타일별 단축키 제거 후 재등록
+    removeStyleShortcuts();
+    registerStyleShortcuts();
+  }
+
+  // 한글(HWP) 전용 단축키
+  function registerHwpShortcuts() {
+    // 글꼴 서식 (한글 스타일)
+    addShortcut('Alt+Shift+B', '진하게', function() { execCommand('Bold'); }, 'hwp');
+    addShortcut('Alt+Shift+I', '기울임', function() { execCommand('Italic'); }, 'hwp');
+    addShortcut('Alt+Shift+U', '밑줄', function() { execCommand('Underline'); }, 'hwp');
+    addShortcut('Alt+Shift+P', '위첨자', function() { execCommand('Superscript'); }, 'hwp');
+    addShortcut('Alt+Shift+S', '아래첨자', function() { execCommand('Subscript'); }, 'hwp');
+    addShortcut('Alt+Shift+C', '보통 모양', function() { execCommand('ClearFormatting'); }, 'hwp');
+    addShortcut('Alt+Shift+E', '글자 크게', function() { execCommand('IncreaseFontSize'); }, 'hwp');
+
+    // 문단 정렬 (한글 스타일)
+    addShortcut('Ctrl+Shift+L', '왼쪽 정렬', function() { execCommand('AlignLeft'); }, 'hwp');
+    addShortcut('Ctrl+Shift+M', '양쪽 정렬', function() { execCommand('AlignJustify'); }, 'hwp');
+
+    // 찾기 (한글 스타일)
+    addShortcut('F2', '찾기', function() { execCommand('Find'); }, 'hwp');
+    addShortcut('Ctrl+F2', '찾아 바꾸기', function() { execCommand('Replace'); }, 'hwp');
+
+    // 삽입 (한글 스타일)
+    addShortcut('Ctrl+J', '쪽 나누기', function() { execCommand('InsertPageBreak'); }, 'hwp');
+    addShortcut('Ctrl+Alt+E', '수식', function() { execCommand('InsertEquation'); }, 'hwp');
+
+    // 편집 (한글 스타일)
+    addShortcut('Shift+Delete', '오려 두기', function() { execCommand('Cut'); }, 'hwp');
+    addShortcut('Alt+C', '모양 복사', function() { execCommand('FormatPainter'); }, 'hwp');
+
+    // 파일 (한글 스타일)
+    addShortcut('Alt+S', '저장', function() { execCommand('Save'); }, 'hwp');
+    addShortcut('Alt+P', '인쇄', function() { execCommand('Print'); }, 'hwp');
+
+    console.log('[BizBell] HWP style shortcuts registered');
+  }
+
+  // MS Word 전용 단축키
+  function registerWordShortcuts() {
+    // 문단 정렬 (Word 스타일)
+    addShortcut('Ctrl+L', '왼쪽 정렬', function() { execCommand('AlignLeft'); }, 'word');
+    addShortcut('Ctrl+E', '가운데 정렬', function() { execCommand('AlignCenter'); }, 'word');
+    addShortcut('Ctrl+R', '오른쪽 정렬', function() { execCommand('AlignRight'); }, 'word');
+    addShortcut('Ctrl+J', '양쪽 정렬', function() { execCommand('AlignJustify'); }, 'word');
+
+    // 글꼴 크기 (Word 스타일)
+    addShortcut('Ctrl+Shift+>', '글꼴 크기 증가', function() { execCommand('IncreaseFontSize'); }, 'word');
+    addShortcut('Ctrl+Shift+<', '글꼴 크기 감소', function() { execCommand('DecreaseFontSize'); }, 'word');
+
+    // 첨자 (Word 스타일)
+    addShortcut('Ctrl+=', '아래첨자', function() { execCommand('Subscript'); }, 'word');
+    addShortcut('Ctrl+Shift+=', '위첨자', function() { execCommand('Superscript'); }, 'word');
+
+    // 줄 간격 (Word 스타일)
+    addShortcut('Ctrl+1', '줄 간격 1', function() { execCommand('LineSpacing1'); }, 'word');
+    addShortcut('Ctrl+2', '줄 간격 2', function() { execCommand('LineSpacing2'); }, 'word');
+    addShortcut('Ctrl+5', '줄 간격 1.5', function() { execCommand('LineSpacing15'); }, 'word');
+
+    // 스타일 (Word 스타일)
+    addShortcut('Ctrl+Shift+N', '기본 스타일', function() { execCommand('ApplyNormalStyle'); }, 'word');
+    addShortcut('Ctrl+Alt+1', '제목1', function() { execCommand('ApplyHeading1'); }, 'word');
+    addShortcut('Ctrl+Alt+2', '제목2', function() { execCommand('ApplyHeading2'); }, 'word');
+    addShortcut('Ctrl+Alt+3', '제목3', function() { execCommand('ApplyHeading3'); }, 'word');
+
+    // 기타 (Word 스타일)
+    addShortcut('F7', '맞춤법 검사', function() { execCommand('SpellCheck'); }, 'word');
+    addShortcut('Shift+F3', '대/소문자 변환', function() { execCommand('ChangeCase'); }, 'word');
+
+    console.log('[BizBell] MS Word style shortcuts registered');
+  }
+
+  // 스타일별 단축키 제거
+  var styleShortcutIds = [];
+  function removeStyleShortcuts() {
+    // 스타일별 단축키 ID 목록을 사용하여 제거
+    styleShortcutIds = [];
+  }
+
+  // ============================================================
+  // 유틸리티 함수
+  // ============================================================
+
+  function getShortcutManager() {
+    try {
+      // OnlyOffice 내부 단축키 매니저 접근 시도
+      if (window.Asc && window.Asc.asc_docs_api) {
+        return true; // 간단히 존재 여부만 확인
+      }
+    } catch (e) {}
+    return null;
+  }
+
+  function addShortcut(keys, description, callback, style) {
+    var id = keys + ' (' + description + ')';
+
+    if (style) {
+      styleShortcutIds.push(id);
+    }
+
+    registeredShortcuts.push(id);
+
+    // 키 조합 파싱
+    var keyInfo = parseKeyCombo(keys);
+
+    // 전역 키보드 이벤트 리스너에 추가
+    addKeyListener(keyInfo, callback, style);
+  }
+
+  function parseKeyCombo(keys) {
+    var parts = keys.split('+');
+    var result = {
+      ctrl: false,
+      alt: false,
+      shift: false,
+      key: '',
+      keyCode: 0
+    };
+
+    parts.forEach(function(part) {
+      part = part.trim();
+      switch (part.toLowerCase()) {
+        case 'ctrl':
+        case 'cmd':
+          result.ctrl = true;
+          break;
+        case 'alt':
+          result.alt = true;
+          break;
+        case 'shift':
+          result.shift = true;
+          break;
+        default:
+          result.key = part;
+          result.keyCode = getKeyCode(part);
+      }
+    });
+
+    return result;
+  }
+
+  function getKeyCode(key) {
+    var keyMap = {
+      'a': 65, 'b': 66, 'c': 67, 'd': 68, 'e': 69, 'f': 70, 'g': 71, 'h': 72,
+      'i': 73, 'j': 74, 'k': 75, 'l': 76, 'm': 77, 'n': 78, 'o': 79, 'p': 80,
+      'q': 81, 'r': 82, 's': 83, 't': 84, 'u': 85, 'v': 86, 'w': 87, 'x': 88,
+      'y': 89, 'z': 90,
+      '0': 48, '1': 49, '2': 50, '3': 51, '4': 52, '5': 53, '6': 54, '7': 55, '8': 56, '9': 57,
+      'f1': 112, 'f2': 113, 'f3': 114, 'f4': 115, 'f5': 116, 'f6': 117,
+      'f7': 118, 'f8': 119, 'f9': 120, 'f10': 121, 'f11': 122, 'f12': 123,
+      'enter': 13, 'tab': 9, 'escape': 27, 'space': 32, 'backspace': 8, 'delete': 46,
+      'home': 36, 'end': 35, 'pageup': 33, 'pagedown': 34,
+      'left': 37, 'up': 38, 'right': 39, 'down': 40,
+      '[': 219, ']': 221, '-': 189, '=': 187, '.': 190, ',': 188,
+      '<': 188, '>': 190
+    };
+    return keyMap[key.toLowerCase()] || key.charCodeAt(0);
+  }
+
+  var keyListeners = [];
+
+  function addKeyListener(keyInfo, callback, style) {
+    keyListeners.push({
+      keyInfo: keyInfo,
+      callback: callback,
+      style: style || null
+    });
+  }
+
+  // 전역 키보드 이벤트 핸들러
+  document.addEventListener('keydown', function(e) {
+    var handled = false;
+
+    for (var i = 0; i < keyListeners.length; i++) {
+      var listener = keyListeners[i];
+      var ki = listener.keyInfo;
+
+      // 스타일 체크
+      if (listener.style && listener.style !== currentStyle) {
+        continue;
+      }
+
+      // 키 조합 매칭
+      var ctrlMatch = (e.ctrlKey || e.metaKey) === ki.ctrl;
+      var altMatch = e.altKey === ki.alt;
+      var shiftMatch = e.shiftKey === ki.shift;
+      var keyMatch = e.keyCode === ki.keyCode || e.key.toLowerCase() === ki.key.toLowerCase();
+
+      if (ctrlMatch && altMatch && shiftMatch && keyMatch) {
+        try {
+          listener.callback();
+          handled = true;
+          e.preventDefault();
+          e.stopPropagation();
+          break;
+        } catch (err) {
+          console.error('[BizBell] Shortcut error:', err);
+        }
+      }
+    }
+
+    return !handled;
+  }, true);
+
+  function execCommand(command) {
+    try {
+      var editor = window.Asc && window.Asc.editor;
+      if (!editor) {
+        console.warn('[BizBell] Editor not found for command:', command);
+        return;
+      }
+
+      switch (command) {
+        // 글꼴 서식
+        case 'Bold':
+          editor.asc_SetBold && editor.asc_SetBold(!editor.asc_GetBold());
+          break;
+        case 'Italic':
+          editor.asc_SetItalic && editor.asc_SetItalic(!editor.asc_GetItalic());
+          break;
+        case 'Underline':
+          editor.asc_SetUnderline && editor.asc_SetUnderline(!editor.asc_GetUnderline());
+          break;
+        case 'Strikeout':
+          editor.asc_SetStrikeout && editor.asc_SetStrikeout(!editor.asc_GetStrikeout());
+          break;
+        case 'Superscript':
+          editor.asc_SetSuperscript && editor.asc_SetSuperscript(!editor.asc_GetSuperscript());
+          break;
+        case 'Subscript':
+          editor.asc_SetSubscript && editor.asc_SetSubscript(!editor.asc_GetSubscript());
+          break;
+        case 'ClearFormatting':
+          editor.asc_ClearFormatting && editor.asc_ClearFormatting();
+          break;
+
+        // 글꼴 크기
+        case 'IncreaseFontSize':
+          editor.asc_incDecFontSize && editor.asc_incDecFontSize(true);
+          break;
+        case 'DecreaseFontSize':
+          editor.asc_incDecFontSize && editor.asc_incDecFontSize(false);
+          break;
+
+        // 문단 정렬
+        case 'AlignLeft':
+          editor.asc_SetParagraphAlign && editor.asc_SetParagraphAlign(1);
+          break;
+        case 'AlignCenter':
+          editor.asc_SetParagraphAlign && editor.asc_SetParagraphAlign(2);
+          break;
+        case 'AlignRight':
+          editor.asc_SetParagraphAlign && editor.asc_SetParagraphAlign(0);
+          break;
+        case 'AlignJustify':
+          editor.asc_SetParagraphAlign && editor.asc_SetParagraphAlign(3);
+          break;
+
+        // 찾기/바꾸기
+        case 'Find':
+          triggerMenuAction('search');
+          break;
+        case 'Replace':
+          triggerMenuAction('replace');
+          break;
+
+        // 삽입
+        case 'InsertPageBreak':
+          editor.asc_AddPageBreak && editor.asc_AddPageBreak();
+          break;
+        case 'InsertColumnBreak':
+          editor.asc_AddColumnBreak && editor.asc_AddColumnBreak();
+          break;
+        case 'InsertLineBreak':
+          editor.asc_AddLineBreak && editor.asc_AddLineBreak();
+          break;
+        case 'InsertHyperlink':
+          triggerMenuAction('hyperlink');
+          break;
+        case 'InsertEquation':
+          editor.asc_AddMath && editor.asc_AddMath();
+          break;
+
+        // 편집
+        case 'Undo':
+          editor.asc_Undo && editor.asc_Undo();
+          break;
+        case 'Redo':
+          editor.asc_Redo && editor.asc_Redo();
+          break;
+        case 'SelectAll':
+          editor.asc_SelectAll && editor.asc_SelectAll();
+          break;
+        case 'Cut':
+          editor.asc_Cut && editor.asc_Cut();
+          break;
+        case 'Copy':
+          editor.asc_Copy && editor.asc_Copy();
+          break;
+        case 'Paste':
+          editor.asc_Paste && editor.asc_Paste();
+          break;
+        case 'FormatPainter':
+          triggerMenuAction('format-painter');
+          break;
+
+        // 파일
+        case 'Save':
+          editor.asc_Save && editor.asc_Save();
+          break;
+        case 'Print':
+          editor.asc_Print && editor.asc_Print();
+          break;
+
+        // 스타일
+        case 'ApplyHeading1':
+          editor.asc_SetParagraphStyle && editor.asc_SetParagraphStyle('Heading 1');
+          break;
+        case 'ApplyHeading2':
+          editor.asc_SetParagraphStyle && editor.asc_SetParagraphStyle('Heading 2');
+          break;
+        case 'ApplyHeading3':
+          editor.asc_SetParagraphStyle && editor.asc_SetParagraphStyle('Heading 3');
+          break;
+        case 'ApplyNormalStyle':
+          editor.asc_SetParagraphStyle && editor.asc_SetParagraphStyle('Normal');
+          break;
+
+        // 줄 간격
+        case 'LineSpacing1':
+          editor.asc_SetParagraphSpacing && editor.asc_SetParagraphSpacing({ LineRule: 1, Line: 1 });
+          break;
+        case 'LineSpacing15':
+          editor.asc_SetParagraphSpacing && editor.asc_SetParagraphSpacing({ LineRule: 1, Line: 1.5 });
+          break;
+        case 'LineSpacing2':
+          editor.asc_SetParagraphSpacing && editor.asc_SetParagraphSpacing({ LineRule: 1, Line: 2 });
+          break;
+
+        // 기타
+        case 'Help':
+          triggerMenuAction('help');
+          break;
+        case 'SpellCheck':
+          triggerMenuAction('spellcheck');
+          break;
+        case 'Zoom100':
+          editor.asc_setZoom && editor.asc_setZoom(100);
+          break;
+
+        default:
+          console.log('[BizBell] Unknown command:', command);
+      }
+    } catch (err) {
+      console.error('[BizBell] Error executing command:', command, err);
+    }
+  }
+
+  function insertText(text) {
+    try {
+      var editor = window.Asc && window.Asc.editor;
+      if (editor && editor.asc_AddText) {
+        editor.asc_AddText(text);
+      }
+    } catch (err) {
+      console.error('[BizBell] Error inserting text:', err);
+    }
+  }
+
+  function triggerMenuAction(action) {
+    // 메뉴 액션 트리거 시도
+    try {
+      var menuItem = document.querySelector('[data-action="' + action + '"]') ||
+                     document.getElementById('menu-' + action);
+      if (menuItem) {
+        menuItem.click();
+      }
+    } catch (err) {
+      console.warn('[BizBell] Could not trigger menu action:', action);
+    }
+  }
+
+  function registerFallbackShortcuts() {
+    console.log('[BizBell] Using fallback shortcut registration');
+    // 기본 키보드 이벤트만 사용
+  }
+
+  // changeShortcutStyle 함수를 외부에서 접근 가능하도록 저장
+  var _changeShortcutStyle = null;
+
+  // 외부에서 현재 스타일 확인용
+  window.BizBellShortcuts = {
+    getStyle: function() { return currentStyle; },
+    setStyle: function(style) {
+      if (_changeShortcutStyle && (style === 'hwp' || style === 'word')) {
+        _changeShortcutStyle(style);
+      }
+    },
+    getRegisteredShortcuts: function() { return registeredShortcuts.slice(); }
+  };
+
 })();
-// ============================================
